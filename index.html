@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Finanzas Familiares">
+    <meta name="theme-color" content="#1a202c">
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Finanzas%20Familiares%22,%22short_name%22:%22Finanzas%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22%23ffffff%22,%22theme_color%22:%22%231a202c%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%253Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20192%20192'%253E%253Crect%20fill='%23231a202c'%20width='192'%20height='192'/%253E%253Ctext%20x='50%25'%20y='50%25'%20font-size='100'%20font-weight='bold'%20fill='white'%20text-anchor='middle'%20dominant-baseline='middle'%20font-family='system-ui'%253EFF%253C/text%253E%253C/svg%253E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22,%22purpose%22:%22any%22}]}">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%231a202c' width='180' height='180'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='system-ui'>FF</text></svg>">
+    <title>Finanzas Familiares</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f9fafb; }
+        html, body { height: 100%; width: 100%; }
+        input, select, button { font-family: inherit; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script>
+        const { useState, useEffect } = React;
+
+        function FinanzasPWA() {
+          const [movimientos, setMovimientos] = useState([]);
+          const [showForm, setShowForm] = useState(false);
+          const [formData, setFormData] = useState({
+            descripcion: '',
+            tipo: 'Gasto',
+            persona: 'Julian Mejia',
+            categoria: 'Alimentación',
+            metodo: 'Efectivo',
+            monto: '',
+            fecha: new Date().toISOString().split('T')[0]
+          });
+
+          const categorias = ['Salario', 'Freelance/Extra', 'Otros ingresos', 'Vivienda', 'Servicios públicos', 'Alimentación', 'Transporte', 'Salud', 'Educación', 'Ocio', 'Deudas', 'Ahorro/Inversión', 'Otros gastos'];
+          const metodos = ['Efectivo', 'Tarjeta débito', 'Tarjeta crédito', 'Transferencia', 'Apple Pay'];
+          const personas = ['Julian Mejia', 'Isabela Gomez', 'Ambos'];
+
+          useEffect(() => {
+            const saved = localStorage.getItem('finanzas_movimientos');
+            if (saved) setMovimientos(JSON.parse(saved));
+          }, []);
+
+          const guardarMovimiento = () => {
+            if (!formData.descripcion || !formData.monto) {
+              alert('Completa descripción y monto');
+              return;
+            }
+            
+            const nuevoMovimiento = {
+              id: Date.now(),
+              ...formData,
+              monto: parseFloat(formData.monto)
+            };
+            
+            const actualizado = [nuevoMovimiento, ...movimientos];
+            setMovimientos(actualizado);
+            localStorage.setItem('finanzas_movimientos', JSON.stringify(actualizado));
+            
+            setFormData({
+              descripcion: '',
+              tipo: 'Gasto',
+              persona: 'Julian Mejia',
+              categoria: 'Alimentación',
+              metodo: 'Efectivo',
+              monto: '',
+              fecha: new Date().toISOString().split('T')[0]
+            });
+            setShowForm(false);
+          };
+
+          const totales = movimientos.reduce((acc, m) => ({
+            ingresos: acc.ingresos + (m.tipo === 'Ingreso' ? m.monto : 0),
+            gastos: acc.gastos + (m.tipo === 'Gasto' ? m.monto : 0)
+          }), { ingresos: 0, gastos: 0 });
+
+          const balance = totales.ingresos - totales.gastos;
+          const mesActual = new Date().toLocaleString('es', { month: 'long', year: 'numeric' });
+
+          return React.createElement('div', { style: { background: '#ffffff', minHeight: '100vh', paddingBottom: '80px' } },
+            React.createElement('div', { style: { background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)', color: 'white', padding: '1.5rem', textAlign: 'center' } },
+              React.createElement('h1', { style: { margin: '0 0 0.5rem 0', fontSize: '20px', fontWeight: '500' } }, 'Finanzas Familiares'),
+              React.createElement('p', { style: { margin: 0, fontSize: '12px', opacity: 0.8 } }, mesActual)
+            ),
+            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '1rem', background: '#f9fafb' } },
+              React.createElement('div', { style: { background: '#ffffff', border: '0.5px solid #e5e7eb', borderRadius: '8px', padding: '1rem', textAlign: 'center' } },
+                React.createElement('p', { style: { margin: '0 0 8px 0', fontSize: '12px', color: '#6b7280' } }, 'Ingresos'),
+                React.createElement('p', { style: { margin: 0, fontSize: '20px', fontWeight: '500', color: '#10b981' } }, 
+                  '$' + totales.ingresos.toLocaleString('es-CO', { maximumFractionDigits: 0 })
+                )
+              ),
+              React.createElement('div', { style: { background: '#ffffff', border: '0.5px solid #e5e7eb', borderRadius: '8px', padding: '1rem', textAlign: 'center' } },
+                React.createElement('p', { style: { margin: '0 0 8px 0', fontSize: '12px', color: '#6b7280' } }, 'Gastos'),
+                React.createElement('p', { style: { margin: 0, fontSize: '20px', fontWeight: '500', color: '#ef4444' } }, 
+                  '$' + totales.gastos.toLocaleString('es-CO', { maximumFractionDigits: 0 })
+                )
+              ),
+              React.createElement('div', { style: { gridColumn: '1 / -1', background: '#ffffff', border: '0.5px solid #e5e7eb', borderRadius: '8px', padding: '1rem', textAlign: 'center' } },
+                React.createElement('p', { style: { margin: '0 0 8px 0', fontSize: '12px', color: '#6b7280' } }, 'Balance'),
+                React.createElement('p', { style: { margin: 0, fontSize: '24px', fontWeight: '500', color: balance >= 0 ? '#3b82f6' : '#ef4444' } }, 
+                  '$' + balance.toLocaleString('es-CO', { maximumFractionDigits: 0 })
+                )
+              )
+            ),
+            React.createElement('div', { style: { padding: '1rem' } },
+              movimientos.length === 0 
+                ? React.createElement('div', { style: { textAlign: 'center', padding: '2rem', color: '#9ca3af' } },
+                    React.createElement('p', { style: { fontSize: '14px' } }, 'Sin movimientos aún'),
+                    React.createElement('p', { style: { fontSize: '12px' } }, 'Agrega tu primer movimiento')
+                  )
+                : movimientos.map(m =>
+                    React.createElement('div', { key: m.id, style: { background: '#ffffff', border: '0.5px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                      React.createElement('div', { style: { flex: 1 } },
+                        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
+                          React.createElement('span', { style: { fontSize: '11px', fontWeight: '500', padding: '2px 8px', borderRadius: '4px', background: m.tipo === 'Ingreso' ? '#d1fae5' : '#fee2e2', color: m.tipo === 'Ingreso' ? '#065f46' : '#7f1d1d' } }, m.tipo),
+                          React.createElement('span', { style: { fontSize: '11px', color: '#6b7280' } }, m.categoria)
+                        ),
+                        React.createElement('p', { style: { margin: '0 0 4px 0', fontSize: '14px', fontWeight: '500', color: '#1f2937' } }, m.descripcion),
+                        React.createElement('div', { style: { display: 'flex', gap: '12px', fontSize: '11px', color: '#9ca3af' } },
+                          React.createElement('span', null, m.persona.split(' ')[0]),
+                          React.createElement('span', null, m.metodo),
+                          React.createElement('span', null, m.fecha)
+                        )
+                      ),
+                      React.createElement('div', { style: { fontSize: '16px', fontWeight: '500', color: m.tipo === 'Ingreso' ? '#10b981' : '#ef4444', marginLeft: '12px', whiteSpace: 'nowrap' } }, 
+                        (m.tipo === 'Ingreso' ? '+' : '-') + '$' + m.monto.toLocaleString('es-CO', { maximumFractionDigits: 0 })
+                      )
+                    )
+                  )
+            ),
+            React.createElement('button', { 
+              onClick: () => setShowForm(true),
+              style: { position: 'fixed', bottom: '20px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3b82f6', color: '#ffffff', border: 'none', fontSize: '24px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', zIndex: 100 } 
+            }, '+'),
+            showForm && React.createElement('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.45)', display: 'flex', alignItems: 'flex-end', zIndex: 1000 } },
+              React.createElement('div', { style: { background: '#ffffff', width: '100%', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' } },
+                React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' } },
+                  React.createElement('h2', { style: { margin: 0, fontSize: '18px', fontWeight: '500' } }, 'Agregar movimiento'),
+                  React.createElement('button', { onClick: () => setShowForm(false), style: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#6b7280' } }, '✕')
+                ),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
+                  React.createElement('div', null,
+                    React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Descripción'),
+                    React.createElement('input', { type: 'text', placeholder: 'Ej: Compra en Carrefour', value: formData.descripcion, onChange: (e) => setFormData({...formData, descripcion: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } })
+                  ),
+                  React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' } },
+                    React.createElement('div', null,
+                      React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Tipo'),
+                      React.createElement('select', { value: formData.tipo, onChange: (e) => setFormData({...formData, tipo: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } },
+                        React.createElement('option', null, 'Ingreso'),
+                        React.createElement('option', null, 'Gasto')
+                      )
+                    ),
+                    React.createElement('div', null,
+                      React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Persona'),
+                      React.createElement('select', { value: formData.persona, onChange: (e) => setFormData({...formData, persona: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } },
+                        personas.map(p => React.createElement('option', { key: p }, p))
+                      )
+                    )
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Categoría'),
+                    React.createElement('select', { value: formData.categoria, onChange: (e) => setFormData({...formData, categoria: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } },
+                      categorias.map(c => React.createElement('option', { key: c }, c))
+                    )
+                  ),
+                  React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' } },
+                    React.createElement('div', null,
+                      React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Monto'),
+                      React.createElement('input', { type: 'number', placeholder: '0', value: formData.monto, onChange: (e) => setFormData({...formData, monto: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } })
+                    ),
+                    React.createElement('div', null,
+                      React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Fecha'),
+                      React.createElement('input', { type: 'date', value: formData.fecha, onChange: (e) => setFormData({...formData, fecha: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } })
+                    )
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Método de pago'),
+                    React.createElement('select', { value: formData.metodo, onChange: (e) => setFormData({...formData, metodo: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } },
+                      metodos.map(m => React.createElement('option', { key: m }, m))
+                    )
+                  ),
+                  React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '1rem' } },
+                    React.createElement('button', { onClick: () => setShowForm(false), style: { padding: '10px', border: '0.5px solid #d1d5db', background: '#ffffff', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' } }, 'Cancelar'),
+                    React.createElement('button', { onClick: guardarMovimiento, style: { padding: '10px', border: 'none', background: '#3b82f6', color: '#ffffff', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' } }, 'Guardar')
+                  )
+                )
+              )
+            )
+          );
+        }
+
+        ReactDOM.render(React.createElement(FinanzasPWA), document.getElementById('root'));
+
+        // Service Worker para PWA offline
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('data:application/javascript,self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>e.waitUntil(clients.claim()));self.addEventListener("fetch",e=>{if(e.request.method==="GET"){e.respondWith(fetch(e.request).catch(()=>Response.error()))}});').catch(err => console.log('SW registration:', err));
+        }
+    </script>
+</body>
+</html>

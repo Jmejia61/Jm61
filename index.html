@@ -1,206 +1,358 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Finanzas Familiares">
-    <meta name="theme-color" content="#1a202c">
-    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Finanzas%20Familiares%22,%22short_name%22:%22Finanzas%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22%23ffffff%22,%22theme_color%22:%22%231a202c%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%253Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20192%20192'%253E%253Crect%20fill='%23231a202c'%20width='192'%20height='192'/%253E%253Ctext%20x='50%25'%20y='50%25'%20font-size='100'%20font-weight='bold'%20fill='white'%20text-anchor='middle'%20dominant-baseline='middle'%20font-family='system-ui'%253EFF%253C/text%253E%253C/svg%253E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22,%22purpose%22:%22any%22}]}">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%231a202c' width='180' height='180'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='system-ui'>FF</text></svg>">
-    <title>Finanzas Familiares</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f9fafb; }
-        html, body { height: 100%; width: 100%; }
-        input, select, button { font-family: inherit; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Finanzas Familiares">
+<meta name="theme-color" content="#1a202c">
+<link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Finanzas%20Familiares%22,%22short_name%22:%22Finanzas%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22%23f9fafb%22,%22theme_color%22:%22%231a202c%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%253Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20192%20192'%253E%253Crect%20fill='%231a202c'%20width='192'%20height='192'/%253E%253Ctext%20x='50%25'%20y='50%25'%20font-size='100'%20font-weight='bold'%20fill='white'%20text-anchor='middle'%20dominant-baseline='middle'%20font-family='system-ui'%253EFF%253C/text%253E%253C/svg%253E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22,%22purpose%22:%22any%22}]}">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%231a202c' width='180' height='180'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='system-ui'>FF</text></svg>">
+<title>Finanzas Familiares</title>
+<style>
+  :root {
+    --fondo: #f9fafb;
+    --tarjeta: #ffffff;
+    --borde: #e5e7eb;
+    --texto: #1f2937;
+    --suave: #6b7280;
+    --tenue: #9ca3af;
+    --verde: #10b981;
+    --rojo: #ef4444;
+    --azul: #3b82f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+    padding-bottom: 32px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    color: #fff;
+    padding: 1.5rem 1rem 1.25rem;
+    text-align: center;
+  }
+  header h1 { font-size: 19px; font-weight: 500; margin-bottom: 10px; }
+
+  .mes-nav { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .mes-nav button {
+    background: rgba(255,255,255,.12); border: none; color: #fff;
+    width: 30px; height: 30px; border-radius: 50%; font-size: 16px;
+    cursor: pointer; line-height: 1;
+  }
+  .mes-nav button:disabled { opacity: .25; cursor: default; }
+  .mes-nav span { font-size: 13px; opacity: .9; min-width: 130px; text-transform: capitalize; }
+
+  .contenido { padding: 1rem; display: flex; flex-direction: column; gap: 14px; }
+
+  .tarjeta {
+    background: var(--tarjeta);
+    border: 0.5px solid var(--borde);
+    border-radius: 10px;
+    padding: 1rem;
+  }
+  .tarjeta h2 {
+    font-size: 12px; font-weight: 500; color: var(--suave);
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: 14px;
+  }
+
+  .totales { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .total { text-align: center; }
+  .total .etiqueta { font-size: 12px; color: var(--suave); margin-bottom: 6px; }
+  .total .valor { font-size: 19px; font-weight: 500; }
+  .ancho { grid-column: 1 / -1; }
+  .ancho .valor { font-size: 25px; }
+
+  .fila-barra { margin-bottom: 14px; }
+  .fila-barra:last-child { margin-bottom: 0; }
+  .fila-barra .linea {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 5px; gap: 10px;
+  }
+  .fila-barra .nombre { color: var(--texto); }
+  .fila-barra .cifra { color: var(--suave); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pista { height: 6px; background: #f3f4f6; border-radius: 3px; overflow: hidden; }
+  .relleno { height: 100%; border-radius: 3px; }
+
+  .mov {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; padding: 12px 0; border-bottom: 0.5px solid var(--borde);
+  }
+  .mov:first-of-type { padding-top: 0; }
+  .mov:last-child { border-bottom: none; padding-bottom: 0; }
+  .mov .desc { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .mov .meta { font-size: 11px; color: var(--tenue); display: flex; gap: 10px; flex-wrap: wrap; }
+  .mov .monto { font-size: 15px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .chip {
+    font-size: 10px; font-weight: 500; padding: 2px 7px;
+    border-radius: 4px; margin-right: 6px;
+  }
+  .chip.ingreso { background: #d1fae5; color: #065f46; }
+  .chip.gasto { background: #fee2e2; color: #7f1d1d; }
+
+  .vacio { text-align: center; color: var(--tenue); padding: 2rem 1rem; font-size: 14px; }
+  .aviso {
+    background: #fef2f2; border: 0.5px solid #fecaca; color: #991b1b;
+    border-radius: 10px; padding: 12px; font-size: 12px; line-height: 1.5;
+  }
+  .pie {
+    text-align: center; font-size: 11px; color: var(--tenue);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .pie button {
+    background: none; border: none; color: var(--azul);
+    font-size: 11px; cursor: pointer; text-decoration: underline; padding: 0;
+  }
+  .verde { color: var(--verde); }
+  .rojo { color: var(--rojo); }
+  .azul { color: var(--azul); }
+</style>
 </head>
 <body>
-    <div id="root"></div>
-    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script>
-        const { useState, useEffect } = React;
 
-        function FinanzasPWA() {
-          const [movimientos, setMovimientos] = useState([]);
-          const [showForm, setShowForm] = useState(false);
-          const [formData, setFormData] = useState({
-            descripcion: '',
-            tipo: 'Gasto',
-            persona: 'Julian Mejia',
-            categoria: 'Alimentación',
-            metodo: 'Efectivo',
-            monto: '',
-            fecha: new Date().toISOString().split('T')[0]
-          });
+<header>
+  <h1>Finanzas Familiares</h1>
+  <div class="mes-nav">
+    <button id="prev" aria-label="Mes anterior">‹</button>
+    <span id="etiqueta-mes">Cargando…</span>
+    <button id="next" aria-label="Mes siguiente">›</button>
+  </div>
+</header>
 
-          const categorias = ['Salario', 'Freelance/Extra', 'Otros ingresos', 'Vivienda', 'Servicios públicos', 'Alimentación', 'Transporte', 'Salud', 'Educación', 'Ocio', 'Deudas', 'Ahorro/Inversión', 'Otros gastos'];
-          const metodos = ['Efectivo', 'Tarjeta débito', 'Tarjeta crédito', 'Transferencia', 'Apple Pay'];
-          const personas = ['Julian Mejia', 'Isabela Gomez', 'Ambos'];
+<main class="contenido" id="app">
+  <div class="vacio">Cargando movimientos…</div>
+</main>
 
-          useEffect(() => {
-            const saved = localStorage.getItem('finanzas_movimientos');
-            if (saved) setMovimientos(JSON.parse(saved));
-          }, []);
+<script>
+(function () {
+  var API = '/api/movimientos';
+  var CACHE = 'finanzas_cache_v2';
 
-          const guardarMovimiento = () => {
-            if (!formData.descripcion || !formData.monto) {
-              alert('Completa descripción y monto');
-              return;
-            }
-            
-            const nuevoMovimiento = {
-              id: Date.now(),
-              ...formData,
-              monto: parseFloat(formData.monto)
-            };
-            
-            const actualizado = [nuevoMovimiento, ...movimientos];
-            setMovimientos(actualizado);
-            localStorage.setItem('finanzas_movimientos', JSON.stringify(actualizado));
-            
-            setFormData({
-              descripcion: '',
-              tipo: 'Gasto',
-              persona: 'Julian Mejia',
-              categoria: 'Alimentación',
-              metodo: 'Efectivo',
-              monto: '',
-              fecha: new Date().toISOString().split('T')[0]
-            });
-            setShowForm(false);
-          };
+  var movimientos = [];
+  var meses = [];      // claves 'YYYY-MM', de más reciente a más antigua
+  var indiceMes = 0;
+  var error = null;
+  var actualizado = null;
 
-          const totales = movimientos.reduce((acc, m) => ({
-            ingresos: acc.ingresos + (m.tipo === 'Ingreso' ? m.monto : 0),
-            gastos: acc.gastos + (m.tipo === 'Gasto' ? m.monto : 0)
-          }), { ingresos: 0, gastos: 0 });
+  var app = document.getElementById('app');
+  var etiqueta = document.getElementById('etiqueta-mes');
+  var btnPrev = document.getElementById('prev');
+  var btnNext = document.getElementById('next');
 
-          const balance = totales.ingresos - totales.gastos;
-          const mesActual = new Date().toLocaleString('es', { month: 'long', year: 'numeric' });
+  // ---------- utilidades ----------
 
-          return React.createElement('div', { style: { background: '#ffffff', minHeight: '100vh', paddingBottom: '80px' } },
-            React.createElement('div', { style: { background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)', color: 'white', padding: '1.5rem', textAlign: 'center' } },
-              React.createElement('h1', { style: { margin: '0 0 0.5rem 0', fontSize: '20px', fontWeight: '500' } }, 'Finanzas Familiares'),
-              React.createElement('p', { style: { margin: 0, fontSize: '12px', opacity: 0.8 } }, mesActual)
-            ),
-            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '1rem', background: '#f9fafb' } },
-              React.createElement('div', { style: { background: '#ffffff', border: '0.5px solid #e5e7eb', borderRadius: '8px', padding: '1rem', textAlign: 'center' } },
-                React.createElement('p', { style: { margin: '0 0 8px 0', fontSize: '12px', color: '#6b7280' } }, 'Ingresos'),
-                React.createElement('p', { style: { margin: 0, fontSize: '20px', fontWeight: '500', color: '#10b981' } }, 
-                  '$' + totales.ingresos.toLocaleString('es-CO', { maximumFractionDigits: 0 })
-                )
-              ),
-              React.createElement('div', { style: { background: '#ffffff', border: '0.5px solid #e5e7eb', borderRadius: '8px', padding: '1rem', textAlign: 'center' } },
-                React.createElement('p', { style: { margin: '0 0 8px 0', fontSize: '12px', color: '#6b7280' } }, 'Gastos'),
-                React.createElement('p', { style: { margin: 0, fontSize: '20px', fontWeight: '500', color: '#ef4444' } }, 
-                  '$' + totales.gastos.toLocaleString('es-CO', { maximumFractionDigits: 0 })
-                )
-              ),
-              React.createElement('div', { style: { gridColumn: '1 / -1', background: '#ffffff', border: '0.5px solid #e5e7eb', borderRadius: '8px', padding: '1rem', textAlign: 'center' } },
-                React.createElement('p', { style: { margin: '0 0 8px 0', fontSize: '12px', color: '#6b7280' } }, 'Balance'),
-                React.createElement('p', { style: { margin: 0, fontSize: '24px', fontWeight: '500', color: balance >= 0 ? '#3b82f6' : '#ef4444' } }, 
-                  '$' + balance.toLocaleString('es-CO', { maximumFractionDigits: 0 })
-                )
-              )
-            ),
-            React.createElement('div', { style: { padding: '1rem' } },
-              movimientos.length === 0 
-                ? React.createElement('div', { style: { textAlign: 'center', padding: '2rem', color: '#9ca3af' } },
-                    React.createElement('p', { style: { fontSize: '14px' } }, 'Sin movimientos aún'),
-                    React.createElement('p', { style: { fontSize: '12px' } }, 'Agrega tu primer movimiento')
-                  )
-                : movimientos.map(m =>
-                    React.createElement('div', { key: m.id, style: { background: '#ffffff', border: '0.5px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-                      React.createElement('div', { style: { flex: 1 } },
-                        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
-                          React.createElement('span', { style: { fontSize: '11px', fontWeight: '500', padding: '2px 8px', borderRadius: '4px', background: m.tipo === 'Ingreso' ? '#d1fae5' : '#fee2e2', color: m.tipo === 'Ingreso' ? '#065f46' : '#7f1d1d' } }, m.tipo),
-                          React.createElement('span', { style: { fontSize: '11px', color: '#6b7280' } }, m.categoria)
-                        ),
-                        React.createElement('p', { style: { margin: '0 0 4px 0', fontSize: '14px', fontWeight: '500', color: '#1f2937' } }, m.descripcion),
-                        React.createElement('div', { style: { display: 'flex', gap: '12px', fontSize: '11px', color: '#9ca3af' } },
-                          React.createElement('span', null, m.persona.split(' ')[0]),
-                          React.createElement('span', null, m.metodo),
-                          React.createElement('span', null, m.fecha)
-                        )
-                      ),
-                      React.createElement('div', { style: { fontSize: '16px', fontWeight: '500', color: m.tipo === 'Ingreso' ? '#10b981' : '#ef4444', marginLeft: '12px', whiteSpace: 'nowrap' } }, 
-                        (m.tipo === 'Ingreso' ? '+' : '-') + '$' + m.monto.toLocaleString('es-CO', { maximumFractionDigits: 0 })
-                      )
-                    )
-                  )
-            ),
-            React.createElement('button', { 
-              onClick: () => setShowForm(true),
-              style: { position: 'fixed', bottom: '20px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3b82f6', color: '#ffffff', border: 'none', fontSize: '24px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', zIndex: 100 } 
-            }, '+'),
-            showForm && React.createElement('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.45)', display: 'flex', alignItems: 'flex-end', zIndex: 1000 } },
-              React.createElement('div', { style: { background: '#ffffff', width: '100%', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' } },
-                React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' } },
-                  React.createElement('h2', { style: { margin: 0, fontSize: '18px', fontWeight: '500' } }, 'Agregar movimiento'),
-                  React.createElement('button', { onClick: () => setShowForm(false), style: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#6b7280' } }, '✕')
-                ),
-                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
-                  React.createElement('div', null,
-                    React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Descripción'),
-                    React.createElement('input', { type: 'text', placeholder: 'Ej: Compra en Carrefour', value: formData.descripcion, onChange: (e) => setFormData({...formData, descripcion: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } })
-                  ),
-                  React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' } },
-                    React.createElement('div', null,
-                      React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Tipo'),
-                      React.createElement('select', { value: formData.tipo, onChange: (e) => setFormData({...formData, tipo: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } },
-                        React.createElement('option', null, 'Ingreso'),
-                        React.createElement('option', null, 'Gasto')
-                      )
-                    ),
-                    React.createElement('div', null,
-                      React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Persona'),
-                      React.createElement('select', { value: formData.persona, onChange: (e) => setFormData({...formData, persona: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } },
-                        personas.map(p => React.createElement('option', { key: p }, p))
-                      )
-                    )
-                  ),
-                  React.createElement('div', null,
-                    React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Categoría'),
-                    React.createElement('select', { value: formData.categoria, onChange: (e) => setFormData({...formData, categoria: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } },
-                      categorias.map(c => React.createElement('option', { key: c }, c))
-                    )
-                  ),
-                  React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' } },
-                    React.createElement('div', null,
-                      React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Monto'),
-                      React.createElement('input', { type: 'number', placeholder: '0', value: formData.monto, onChange: (e) => setFormData({...formData, monto: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } })
-                    ),
-                    React.createElement('div', null,
-                      React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Fecha'),
-                      React.createElement('input', { type: 'date', value: formData.fecha, onChange: (e) => setFormData({...formData, fecha: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } })
-                    )
-                  ),
-                  React.createElement('div', null,
-                    React.createElement('label', { style: { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' } }, 'Método de pago'),
-                    React.createElement('select', { value: formData.metodo, onChange: (e) => setFormData({...formData, metodo: e.target.value}), style: { width: '100%', padding: '8px 12px', border: '0.5px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' } },
-                      metodos.map(m => React.createElement('option', { key: m }, m))
-                    )
-                  ),
-                  React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '1rem' } },
-                    React.createElement('button', { onClick: () => setShowForm(false), style: { padding: '10px', border: '0.5px solid #d1d5db', background: '#ffffff', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' } }, 'Cancelar'),
-                    React.createElement('button', { onClick: guardarMovimiento, style: { padding: '10px', border: 'none', background: '#3b82f6', color: '#ffffff', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' } }, 'Guardar')
-                  )
-                )
-              )
-            )
-          );
-        }
+  function pesos(n) {
+    return '$' + Math.round(n).toLocaleString('es-CO');
+  }
 
-        ReactDOM.render(React.createElement(FinanzasPWA), document.getElementById('root'));
+  function claveMes(fecha) {
+    return (fecha || '').slice(0, 7); // 'YYYY-MM'
+  }
 
-        // Service Worker para PWA offline
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('data:application/javascript,self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>e.waitUntil(clients.claim()));self.addEventListener("fetch",e=>{if(e.request.method==="GET"){e.respondWith(fetch(e.request).catch(()=>Response.error()))}});').catch(err => console.log('SW registration:', err));
-        }
-    </script>
+  function nombreMes(clave) {
+    if (!clave) return '';
+    var partes = clave.split('-');
+    var d = new Date(Number(partes[0]), Number(partes[1]) - 1, 1);
+    return d.toLocaleString('es-CO', { month: 'long', year: 'numeric' });
+  }
+
+  function escapar(t) {
+    return String(t == null ? '' : t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function fechaCorta(iso) {
+    if (!iso) return '';
+    var p = iso.split('-');
+    return p[2] + '/' + p[1];
+  }
+
+  // ---------- agregación ----------
+
+  function agrupar(lista, campo, tipo) {
+    var mapa = {};
+    lista.forEach(function (m) {
+      if (tipo && m.tipo !== tipo) return;
+      var k = m[campo] || 'Sin definir';
+      mapa[k] = (mapa[k] || 0) + m.monto;
+    });
+    return Object.keys(mapa)
+      .map(function (k) { return { nombre: k, total: mapa[k] }; })
+      .sort(function (a, b) { return b.total - a.total; });
+  }
+
+  function barras(filas, color) {
+    if (!filas.length) return '<div class="vacio">Sin datos este mes</div>';
+    var suma = filas.reduce(function (s, f) { return s + f.total; }, 0);
+    return filas.map(function (f) {
+      var pct = suma > 0 ? (f.total / suma) * 100 : 0;
+      return '<div class="fila-barra">' +
+        '<div class="linea">' +
+          '<span class="nombre">' + escapar(f.nombre) + '</span>' +
+          '<span class="cifra">' + pesos(f.total) + ' · ' + pct.toFixed(0) + '%</span>' +
+        '</div>' +
+        '<div class="pista"><div class="relleno" style="width:' + pct.toFixed(1) + '%;background:' + color + '"></div></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ---------- render ----------
+
+  function render() {
+    if (!meses.length) {
+      etiqueta.textContent = '—';
+      btnPrev.disabled = true;
+      btnNext.disabled = true;
+      app.innerHTML = (error ? avisoHTML() : '') +
+        '<div class="vacio">Aún no hay movimientos registrados.<br>Agrégalos desde el atajo del iPhone.</div>' +
+        pieHTML();
+      enlazarPie();
+      return;
+    }
+
+    var clave = meses[indiceMes];
+    etiqueta.textContent = nombreMes(clave);
+    // indiceMes 0 = mes más reciente
+    btnNext.disabled = indiceMes === 0;
+    btnPrev.disabled = indiceMes === meses.length - 1;
+
+    var delMes = movimientos.filter(function (m) { return claveMes(m.fecha) === clave; });
+
+    var ingresos = delMes.reduce(function (s, m) { return s + (m.tipo === 'Ingreso' ? m.monto : 0); }, 0);
+    var gastos = delMes.reduce(function (s, m) { return s + (m.tipo === 'Gasto' ? m.monto : 0); }, 0);
+    var balance = ingresos - gastos;
+
+    var html = '';
+    if (error) html += avisoHTML();
+
+    // Totales
+    html += '<div class="tarjeta"><div class="totales">' +
+      '<div class="total"><div class="etiqueta">Ingresos</div><div class="valor verde">' + pesos(ingresos) + '</div></div>' +
+      '<div class="total"><div class="etiqueta">Gastos</div><div class="valor rojo">' + pesos(gastos) + '</div></div>' +
+      '<div class="total ancho"><div class="etiqueta">Balance</div><div class="valor ' + (balance >= 0 ? 'azul' : 'rojo') + '">' + pesos(balance) + '</div></div>' +
+      '</div></div>';
+
+    // Gastos por categoría
+    html += '<div class="tarjeta"><h2>Gastos por categoría</h2>' +
+      barras(agrupar(delMes, 'categoria', 'Gasto'), '#ef4444') + '</div>';
+
+    // Gastos por persona
+    html += '<div class="tarjeta"><h2>Gastos por persona</h2>' +
+      barras(agrupar(delMes, 'persona', 'Gasto'), '#3b82f6') + '</div>';
+
+    // Métodos de pago
+    html += '<div class="tarjeta"><h2>Método de pago</h2>' +
+      barras(agrupar(delMes, 'metodo', 'Gasto'), '#8b5cf6') + '</div>';
+
+    // Movimientos del mes
+    html += '<div class="tarjeta"><h2>Movimientos · ' + delMes.length + '</h2>';
+    if (!delMes.length) {
+      html += '<div class="vacio">Sin movimientos este mes</div>';
+    } else {
+      html += delMes.map(function (m) {
+        var esIngreso = m.tipo === 'Ingreso';
+        return '<div class="mov">' +
+          '<div style="flex:1;min-width:0">' +
+            '<div class="desc">' +
+              '<span class="chip ' + (esIngreso ? 'ingreso' : 'gasto') + '">' + escapar(m.tipo) + '</span>' +
+              escapar(m.descripcion) +
+            '</div>' +
+            '<div class="meta">' +
+              '<span>' + escapar(m.categoria) + '</span>' +
+              '<span>' + escapar((m.persona || '').split(' ')[0]) + '</span>' +
+              '<span>' + escapar(m.metodo) + '</span>' +
+              '<span>' + fechaCorta(m.fecha) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="monto ' + (esIngreso ? 'verde' : 'rojo') + '">' +
+            (esIngreso ? '+' : '−') + pesos(m.monto) +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+    html += '</div>';
+
+    html += pieHTML();
+    app.innerHTML = html;
+    enlazarPie();
+  }
+
+  function avisoHTML() {
+    return '<div class="aviso">Sin conexión con Notion: ' + escapar(error) +
+      '<br>Mostrando la última copia guardada.</div>';
+  }
+
+  function pieHTML() {
+    var txt = actualizado
+      ? 'Actualizado ' + new Date(actualizado).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+      : '';
+    return '<div class="pie"><span>' + txt + '</span><button id="recargar">Actualizar</button></div>';
+  }
+
+  function enlazarPie() {
+    var b = document.getElementById('recargar');
+    if (b) b.onclick = cargar;
+  }
+
+  // ---------- datos ----------
+
+  function procesar(lista) {
+    movimientos = lista.filter(function (m) { return m.fecha; });
+    var vistos = {};
+    meses = [];
+    movimientos.forEach(function (m) {
+      var k = claveMes(m.fecha);
+      if (k && !vistos[k]) { vistos[k] = true; meses.push(k); }
+    });
+    meses.sort().reverse();
+    indiceMes = 0;
+  }
+
+  function cargar() {
+    error = null;
+    fetch(API)
+      .then(function (r) {
+        return r.json().then(function (d) {
+          if (!r.ok) throw new Error(d.error || d.message || ('Error ' + r.status));
+          return d;
+        });
+      })
+      .then(function (d) {
+        actualizado = d.actualizado || new Date().toISOString();
+        procesar(d.movimientos || []);
+        try { localStorage.setItem(CACHE, JSON.stringify({ actualizado: actualizado, movimientos: movimientos })); } catch (e) {}
+        render();
+      })
+      .catch(function (e) {
+        error = e.message;
+        try {
+          var c = JSON.parse(localStorage.getItem(CACHE) || 'null');
+          if (c && c.movimientos) { actualizado = c.actualizado; procesar(c.movimientos); }
+        } catch (err) {}
+        render();
+      });
+  }
+
+  btnPrev.onclick = function () {
+    if (indiceMes < meses.length - 1) { indiceMes++; render(); }
+  };
+  btnNext.onclick = function () {
+    if (indiceMes > 0) { indiceMes--; render(); }
+  };
+
+  // Recarga al volver a la app
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) cargar();
+  });
+
+  cargar();
+})();
+</script>
 </body>
 </html>

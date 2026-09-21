@@ -132,6 +132,34 @@
   .val.pos { color: var(--verde); }
 
   .vacio { color: var(--tenue); font-size: 12.5px; text-align: center; padding: 24px 8px; }
+
+  /* ---------- filtro por categoría ---------- */
+  .chips {
+    display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--borde);
+    scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex-shrink: 0; font-size: 11.5px; padding: 6px 11px; border-radius: 999px;
+    border: 1px solid var(--borde); background: transparent; color: var(--suave);
+    cursor: pointer; white-space: nowrap; font-family: inherit;
+  }
+  .chip.on { background: var(--acento); border-color: var(--acento); color: #fff; }
+  .resumen-cat {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px; color: var(--suave); margin-bottom: 12px;
+  }
+  .resumen-cat b { color: var(--acento); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .leyenda .it { cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; }
+  .leyenda .it.apagado { opacity: .35; }
+  .leyenda .it.on .nm { color: var(--texto); font-weight: 600; }
+  .dona circle { transition: opacity .2s; }
+  .dona circle.apagado { opacity: .2; }
+  .quitar {
+    background: none; border: none; color: var(--acento); font-size: 11px;
+    cursor: pointer; padding: 0; font-family: inherit; text-decoration: underline;
+  }
   .aviso {
     background: rgba(212,103,74,.1); border: 1px solid rgba(212,103,74,.35);
     color: #e8a992; border-radius: var(--radio); padding: 12px 14px;
@@ -166,6 +194,7 @@
                 '#8f3a28','#d99a7a','#b85a40','#e5b393','#94503c','#c07a5c','#6f2e20'];
 
   var movimientos = [], meses = [], indiceMes = 0, error = null, actualizado = null;
+  var filtroCat = null; // categoría seleccionada, o null = todas
 
   var app = document.getElementById('app');
   var etiqueta = document.getElementById('etiqueta-mes');
@@ -214,20 +243,25 @@
     var R = 70, C = 2 * Math.PI * R, off = 0, segs = '';
     filas.forEach(function (f, i) {
       var largo = (totalGastos > 0 ? f.total / totalGastos : 0) * C;
-      segs += '<circle cx="84" cy="84" r="' + R + '" fill="none" stroke="' + PALETA[i % PALETA.length] +
+      var apagado = filtroCat && filtroCat !== f.nombre ? ' class="apagado"' : '';
+      segs += '<circle' + apagado + ' cx="84" cy="84" r="' + R + '" fill="none" stroke="' + PALETA[i % PALETA.length] +
         '" stroke-width="26" stroke-dasharray="' + largo.toFixed(2) + ' ' + (C - largo).toFixed(2) +
         '" stroke-dashoffset="' + (-off).toFixed(2) + '"></circle>';
       off += largo;
     });
     var leyenda = filas.map(function (f, i) {
       var pc = totalGastos > 0 ? (f.total / totalGastos) * 100 : 0;
-      return '<div class="it"><span class="pt" style="background:' + PALETA[i % PALETA.length] + '"></span>' +
+      var estado = !filtroCat ? '' : (filtroCat === f.nombre ? ' on' : ' apagado');
+      return '<div class="it' + estado + '" data-cat="' + esc(f.nombre) + '"><span class="pt" style="background:' + PALETA[i % PALETA.length] + '"></span>' +
         '<span class="nm">' + esc(f.nombre) + '</span>' +
         '<span class="pc">' + pc.toFixed(0) + '%</span></div>';
     }).join('');
+    var sel = filtroCat ? filas.filter(function (f) { return f.nombre === filtroCat; })[0] : null;
+    var centroM = sel ? pesos(sel.total) : pesos(totalGastos);
+    var centroS = sel ? esc(sel.nombre) : 'gastado';
     return '<div class="dona-wrap">' +
       '<div class="dona"><svg width="168" height="168" viewBox="0 0 168 168">' + segs + '</svg>' +
-      '<div class="centro"><div class="m">' + pesos(totalGastos) + '</div><div class="s">gastado</div></div></div>' +
+      '<div class="centro"><div class="m">' + centroM + '</div><div class="s">' + centroS + '</div></div></div>' +
       '<div class="leyenda">' + leyenda + '</div></div>';
   }
 
@@ -237,7 +271,9 @@
     if (!ventana.length) return '<div class="vacio">Sin historial</div>';
     var datos = ventana.map(function (c) {
       var g = movimientos.reduce(function (s, m) {
-        return s + (claveMes(m.fecha) === c && m.tipo === 'Gasto' ? m.monto : 0);
+        var coincide = claveMes(m.fecha) === c && m.tipo === 'Gasto' &&
+          (!filtroCat || m.categoria === filtroCat);
+        return s + (coincide ? m.monto : 0);
       }, 0);
       return { clave: c, gasto: g };
     });
@@ -295,7 +331,7 @@
 
     h += '<div class="medios">' +
       '<div class="card"><h2>Gastos por categoría</h2>' + dona(agrupar(mes, 'categoria', 'Gasto'), gas) + '</div>' +
-      '<div class="card"><h2>Últimos 6 meses</h2>' + ultimosMeses(clave) + '</div>' +
+      '<div class="card"><h2>' + (filtroCat ? esc(filtroCat) + ' · 6 meses' : 'Últimos 6 meses') + '</h2>' + ultimosMeses(clave) + '</div>' +
       '</div>';
 
     h += '<div class="medios">' +
@@ -305,11 +341,29 @@
 
     h += '</div>';
 
-    h += '<div class="card"><h2>Movimientos del mes · ' + mes.length + '</h2><div class="lista-scroll">';
-    if (!mes.length) {
-      h += '<div class="vacio">Sin movimientos este mes</div>';
+    // Categorías presentes este mes (gastos e ingresos), ordenadas por monto
+    var cats = agrupar(mes, 'categoria').map(function (f) { return f.nombre; });
+    var visibles = filtroCat ? mes.filter(function (m) { return m.categoria === filtroCat; }) : mes;
+
+    h += '<div class="card"><h2>Movimientos · ' + visibles.length + '</h2>';
+
+    h += '<div class="chips">' +
+      '<button class="chip' + (!filtroCat ? ' on' : '') + '" data-cat="">Todas</button>' +
+      cats.map(function (c) {
+        return '<button class="chip' + (filtroCat === c ? ' on' : '') + '" data-cat="' + esc(c) + '">' + esc(c) + '</button>';
+      }).join('') +
+    '</div>';
+
+    if (filtroCat) {
+      var totalCat = visibles.reduce(function (s, m) { return s + m.monto; }, 0);
+      h += '<div class="resumen-cat"><span>Total ' + esc(filtroCat) + ' · <button class="quitar" data-cat="">quitar filtro</button></span><b>' + pesos(totalCat) + '</b></div>';
+    }
+
+    h += '<div class="lista-scroll">';
+    if (!visibles.length) {
+      h += '<div class="vacio">' + (filtroCat ? 'Sin movimientos de ' + esc(filtroCat) + ' este mes' : 'Sin movimientos este mes') + '</div>';
     } else {
-      h += mes.map(function (m) {
+      h += visibles.map(function (m) {
         var esIng = m.tipo === 'Ingreso';
         return '<div class="mov">' +
           '<span class="punto' + (esIng ? ' ing' : '') + '"></span>' +
@@ -376,6 +430,16 @@
 
   btnPrev.onclick = function () { if (indiceMes < meses.length - 1) { indiceMes++; render(); } };
   btnNext.onclick = function () { if (indiceMes > 0) { indiceMes--; render(); } };
+
+  // Un solo escuchador para chips, leyenda y "quitar filtro"
+  app.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-cat]');
+    if (!el) return;
+    var cat = el.getAttribute('data-cat');
+    // Tocar la categoría ya activa la desactiva
+    filtroCat = (!cat || cat === filtroCat) ? null : cat;
+    render();
+  });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) cargar(); });
 
   cargar();

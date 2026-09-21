@@ -160,6 +160,39 @@
     background: none; border: none; color: var(--acento); font-size: 11px;
     cursor: pointer; padding: 0; font-family: inherit; text-decoration: underline;
   }
+
+  /* ---------- selector de persona ---------- */
+  .segmento {
+    display: flex; background: var(--tarjeta); border: 1px solid var(--borde);
+    border-radius: 11px; padding: 3px; margin-bottom: 12px; gap: 2px;
+  }
+  .segmento button {
+    flex: 1; border: none; background: transparent; color: var(--suave);
+    font-size: 12.5px; padding: 8px 6px; border-radius: 8px; cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+  .segmento button.on { background: var(--acento); color: #fff; font-weight: 600; }
+  @media (min-width: 900px) { .segmento { max-width: 460px; } }
+
+  /* ---------- desglose por persona ---------- */
+  .persona {
+    padding: 12px; border-radius: 10px; border: 1px solid var(--borde);
+    margin-bottom: 8px; cursor: pointer;
+  }
+  .persona:last-child { margin-bottom: 0; }
+  .persona.on { border-color: var(--acento); background: rgba(212,103,74,.08); }
+  .persona.total { background: #28201b; cursor: default; }
+  .persona .pn { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .persona .pn span { font-size: 10px; font-weight: 500; color: var(--tenue); text-transform: uppercase; letter-spacing: .08em; }
+  .persona .pv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .persona .pv div { font-size: 10px; color: var(--tenue); text-transform: uppercase; letter-spacing: .06em; }
+  .persona .pv b {
+    display: block; font-size: 13.5px; color: var(--texto); font-weight: 500;
+    text-transform: none; letter-spacing: 0; margin-top: 3px; font-variant-numeric: tabular-nums;
+  }
+  .persona .pv b.ing { color: var(--verde); }
+  .persona .pv b.gas { color: var(--acento); }
+  .persona .pv b.neg { color: #e0664f; }
   .aviso {
     background: rgba(212,103,74,.1); border: 1px solid rgba(212,103,74,.35);
     color: #e8a992; border-radius: var(--radio); padding: 12px 14px;
@@ -195,6 +228,16 @@
 
   var movimientos = [], meses = [], indiceMes = 0, error = null, actualizado = null;
   var filtroCat = null; // categoría seleccionada, o null = todas
+  var filtroPersona = null; // persona seleccionada, o null = todos
+  var ORDEN_PERSONAS = ['Julian Mejia', 'Isabela Gomez', 'Ambos'];
+
+  function nombreCorto(p) { return p === 'Ambos' ? 'Ambos' : (p || '').split(' ')[0]; }
+  function personasPresentes() {
+    var v = {};
+    movimientos.forEach(function (m) { if (m.persona) v[m.persona] = true; });
+    var extra = Object.keys(v).filter(function (p) { return ORDEN_PERSONAS.indexOf(p) === -1; });
+    return ORDEN_PERSONAS.filter(function (p) { return v[p]; }).concat(extra);
+  }
 
   var app = document.getElementById('app');
   var etiqueta = document.getElementById('etiqueta-mes');
@@ -272,7 +315,8 @@
     var datos = ventana.map(function (c) {
       var g = movimientos.reduce(function (s, m) {
         var coincide = claveMes(m.fecha) === c && m.tipo === 'Gasto' &&
-          (!filtroCat || m.categoria === filtroCat);
+          (!filtroCat || m.categoria === filtroCat) &&
+          (!filtroPersona || m.persona === filtroPersona);
         return s + (coincide ? m.monto : 0);
       }, 0);
       return { clave: c, gasto: g };
@@ -298,6 +342,38 @@
     }).join('');
   }
 
+  function desglosePersonas(mesTodo) {
+    var lista = personasPresentes();
+    if (!lista.length) return '<div class="vacio">Sin datos</div>';
+
+    function sumas(filtro) {
+      var i = 0, g = 0;
+      mesTodo.forEach(function (m) {
+        if (!filtro(m)) return;
+        if (m.tipo === 'Ingreso') i += m.monto; else if (m.tipo === 'Gasto') g += m.monto;
+      });
+      return { ing: i, gas: g, queda: i - g };
+    }
+    function bloque(nombre, s, clase, attr, etiqueta) {
+      return '<div class="persona' + clase + '"' + attr + '>' +
+        '<div class="pn">' + esc(nombre) + (etiqueta ? '<span>' + etiqueta + '</span>' : '') + '</div>' +
+        '<div class="pv">' +
+          '<div>Ingresos<b class="ing">' + pesos(s.ing) + '</b></div>' +
+          '<div>Gastos<b class="gas">' + pesos(s.gas) + '</b></div>' +
+          '<div>Queda<b' + (s.queda < 0 ? ' class="neg"' : '') + '>' + pesos(s.queda) + '</b></div>' +
+        '</div></div>';
+    }
+
+    var html = lista.map(function (p) {
+      var s = sumas(function (m) { return m.persona === p; });
+      var on = filtroPersona === p ? ' on' : '';
+      return bloque(p === 'Ambos' ? 'Compartido (Ambos)' : p, s, on, ' data-persona="' + esc(p) + '"', '');
+    }).join('');
+
+    html += bloque('Total juntos', sumas(function () { return true; }), ' total', '', 'Familia');
+    return html;
+  }
+
   // ---------- render ----------
   function render() {
     if (!meses.length) {
@@ -314,19 +390,31 @@
     btnNext.disabled = indiceMes === 0;
     btnPrev.disabled = indiceMes === meses.length - 1;
 
-    var mes = movimientos.filter(function (m) { return claveMes(m.fecha) === clave; });
+    var mesTodo = movimientos.filter(function (m) { return claveMes(m.fecha) === clave; });
+    var mes = filtroPersona ? mesTodo.filter(function (m) { return m.persona === filtroPersona; }) : mesTodo;
     var ing = mes.reduce(function (s, m) { return s + (m.tipo === 'Ingreso' ? m.monto : 0); }, 0);
     var gas = mes.reduce(function (s, m) { return s + (m.tipo === 'Gasto' ? m.monto : 0); }, 0);
 
     var h = '';
     if (error) h += avisoHTML();
 
+    // Selector de persona
+    var pers = personasPresentes();
+    h += '<div class="segmento">' +
+      '<button class="' + (!filtroPersona ? 'on' : '') + '" data-persona="">Todos</button>' +
+      pers.map(function (p) {
+        return '<button class="' + (filtroPersona === p ? 'on' : '') + '" data-persona="' + esc(p) + '">' + esc(nombreCorto(p)) + '</button>';
+      }).join('') +
+    '</div>';
+
+    var sufijo = filtroPersona ? ' · ' + esc(nombreCorto(filtroPersona)) : '';
+
     h += '<div class="grid"><div class="principal">';
 
     h += '<div class="kpis">' +
-      '<div class="card kpi"><div class="etq">Ingresos del mes</div><div class="cifra">' + pesos(ing) + '</div></div>' +
-      '<div class="card kpi"><div class="etq">Gastos del mes</div><div class="cifra">' + pesos(gas) + '</div></div>' +
-      '<div class="card kpi destacada"><div class="etq">Te queda</div><div class="cifra">' + pesos(ing - gas) + '</div></div>' +
+      '<div class="card kpi"><div class="etq">Ingresos' + sufijo + '</div><div class="cifra">' + pesos(ing) + '</div></div>' +
+      '<div class="card kpi"><div class="etq">Gastos' + sufijo + '</div><div class="cifra">' + pesos(gas) + '</div></div>' +
+      '<div class="card kpi destacada"><div class="etq">' + (filtroPersona ? 'Le queda' + sufijo : 'Te queda') + '</div><div class="cifra">' + pesos(ing - gas) + '</div></div>' +
       '</div>';
 
     h += '<div class="medios">' +
@@ -335,7 +423,7 @@
       '</div>';
 
     h += '<div class="medios">' +
-      '<div class="card"><h2>Gastos por persona</h2>' + barras(agrupar(mes, 'persona', 'Gasto')) + '</div>' +
+      '<div class="card"><h2>Por persona</h2>' + desglosePersonas(mesTodo) + '</div>' +
       '<div class="card"><h2>Método de pago</h2>' + barras(agrupar(mes, 'metodo', 'Gasto')) + '</div>' +
       '</div>';
 
@@ -433,6 +521,13 @@
 
   // Un solo escuchador para chips, leyenda y "quitar filtro"
   app.addEventListener('click', function (e) {
+    var pe = e.target.closest('[data-persona]');
+    if (pe) {
+      var p = pe.getAttribute('data-persona');
+      filtroPersona = (!p || p === filtroPersona) ? null : p;
+      render();
+      return;
+    }
     var el = e.target.closest('[data-cat]');
     if (!el) return;
     var cat = el.getAttribute('data-cat');

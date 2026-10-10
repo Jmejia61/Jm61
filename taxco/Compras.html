@@ -1,0 +1,1081 @@
+<!-- ============================================================
+  COMPRAS DINÁMICAS TAXCO — pestaña del dashboard (v1.5: proceso en 3 pasos)
+  1. Inventario  →  2. Sugerido de compras  →  3. Histórico de compras
+  (El análisis de mínimos y máximos quedó dentro del paso 2, en "Ver análisis detallado".)
+  Archivo HTML nuevo llamado exactamente "Compras" dentro del proyecto.
+  No hay que tocar Index.html: doGet() (en Costeo.gs) lo agrega al final de la página.
+  Usa los estilos y colores del dashboard.
+============================================================= -->
+<style>
+  #vista-compras .cp-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  #vista-compras .cp-barra .filtros { margin: 0; }
+  #vista-compras .cp-btn { font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; padding: 8px 14px; border-radius: 10px;
+    border: 1px solid var(--line, #ECEAE8); background: var(--panel, #fff); color: var(--ink, #1E2126); }
+  #vista-compras .cp-btn.fuerte { background: var(--naranja, #E8672A); border-color: var(--naranja, #E8672A); color: #fff; }
+  #vista-compras .cp-btn:focus-visible { outline: 2px solid var(--naranja, #E8672A); outline-offset: 2px; }
+  #vista-compras .cp-aviso { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5;
+    background: var(--naranja-suave, #FFF3EB); color: var(--ink, #1E2126); border: 1px solid var(--naranja-3, #FBD3B7); }
+
+  #vista-compras .cp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  #vista-compras .cp-kpi { background: var(--panel, #fff); border: 1px solid var(--line, #ECEAE8); border-radius: var(--radio-panel, 16px); padding: 16px 18px; }
+  #vista-compras .cp-kpi .t { font-size: 13px; color: var(--muted, #767B84); font-weight: 600; }
+  #vista-compras .cp-kpi .v { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin-top: 6px; white-space: nowrap; }
+  #vista-compras .cp-kpi .s { font-size: 12px; color: var(--muted, #767B84); margin-top: 4px; line-height: 1.35; }
+  #vista-compras .cp-kpi .v.rojo { color: #B03030; }
+  #vista-compras .cp-kpi .v.verde { color: #1F7A52; }
+
+  #vista-compras .cp-params { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 4px 0 6px; }
+  #vista-compras .cp-params label { display: block; font-size: 12px; font-weight: 600; color: var(--muted, #767B84); }
+  #vista-compras .cp-params select, #vista-compras .cp-params input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; font: inherit; font-size: 16px; font-weight: 700;
+    color: var(--ink, #1E2126); padding: 9px 12px; border: 1px solid var(--line, #ECEAE8); border-radius: 10px; background-color: var(--panel, #fff); }
+  #vista-compras .cp-params select:focus-visible, #vista-compras .cp-params input:focus-visible,
+  #vista-compras .cp-tools input:focus-visible { outline: 2px solid var(--naranja, #E8672A); outline-offset: 2px; }
+  #vista-compras .cp-tools { display: flex; gap: 8px; margin: 10px 0 12px; }
+  #vista-compras .cp-tools input { flex: 1; min-width: 170px; font: inherit; font-size: 16px; padding: 9px 12px; border: 1px solid var(--line, #ECEAE8); border-radius: 10px; background: var(--panel, #fff); color: var(--ink, #1E2126); }
+
+  #vista-compras .cp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #vista-compras .cp-scroll table { min-width: 720px; }
+  #vista-compras .cp-mas { margin: 12px auto 0; display: block; }
+  #vista-compras .cp-mas[hidden] { display: none; }
+  #vista-compras small.cp-p { display: block; color: var(--muted, #767B84); font-size: 11px; font-weight: 600; }
+  .cp-vacio { padding: 22px 8px; text-align: center; color: var(--muted, #767B84); font-size: 13px; }
+
+  .cp-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .cp-ok { background: #E3F4EC; color: #1F7A52; }
+  .cp-pe { background: #FFF0D6; color: #9A6200; }
+  .cp-cr { background: #FBE4E4; color: #B03030; }
+  .cp-gr { background: #EEEDEB; color: #767B84; }
+
+  #vista-compras details.cp-det { border-top: 1px solid var(--line, #ECEAE8); padding: 10px 0; }
+  #vista-compras details.cp-det:first-of-type { border-top: 0; }
+  #vista-compras details.cp-det summary { cursor: pointer; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; gap: 10px; list-style: none; }
+  #vista-compras details.cp-det summary::-webkit-details-marker { display: none; }
+  #vista-compras details.cp-det summary b { font-weight: 800; color: var(--naranja, #E8672A); white-space: nowrap; }
+  #vista-compras details.cp-det summary span em { font-style: normal; font-weight: 600; font-size: 12px; color: var(--muted, #767B84); margin-left: 6px; }
+  #vista-compras details.cp-det .cp-scroll { margin-top: 10px; }
+  #vista-compras .cp-ayuda { margin: 8px 0 4px; font-size: 12px; color: var(--muted, #767B84); line-height: 1.45; }
+
+  #vista-compras .cp-params { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  #vista-compras .cp-fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line, #ECEAE8); }
+  #vista-compras .cp-fila .nom { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; }
+  #vista-compras .cp-fila .nom small { display: block; color: var(--muted, #767B84); font-size: 11px; font-weight: 600; margin-top: 2px; line-height: 1.35; }
+  #vista-compras .cp-q { width: 108px; box-sizing: border-box; font: inherit; font-size: 18px; font-weight: 700; text-align: right; padding: 9px 10px;
+    border: 1px solid var(--line, #ECEAE8); border-radius: 10px; background: var(--panel, #fff); color: var(--ink, #1E2126); }
+  #vista-compras .cp-q:focus-visible { outline: 2px solid var(--naranja, #E8672A); outline-offset: 2px; }
+  #vista-compras .cp-q.sucio { border-color: var(--naranja, #E8672A); background: var(--naranja-suave, #FFF3EB); }
+  #vista-compras .cp-q.mal { border-color: #B03030; background: #FBE4E4; }
+  #vista-compras .cp-prog { font-style: normal; font-weight: 600; font-size: 12px; color: var(--muted, #767B84); margin-left: 6px; }
+  #vista-compras .cp-guardar { position: sticky; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    margin-top: 12px; padding: 12px 14px; background: var(--panel, #fff); border: 1px solid var(--line, #ECEAE8); border-radius: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.12); z-index: 4; }
+  #vista-compras .cp-guardar .txt { font-size: 13px; font-weight: 600; flex: 1; min-width: 150px; }
+  #vista-compras .cp-guardar .txt.ok { color: #1F7A52; }
+  #vista-compras .cp-guardar .txt.err { color: #B03030; }
+  #vista-compras .cp-btn[disabled] { opacity: .45; cursor: default; }
+  #vista-compras .cp-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+  #vista-compras .cp-agrupar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0 4px; font-size: 13px; font-weight: 700; }
+  #vista-compras .cp-agrupar .filtros { margin: 0; }
+  #vista-compras .cp-resumen { display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 8px; font-size: 13px; font-weight: 700; }
+  #vista-compras .cp-resumen span em { font-style: normal; font-weight: 600; color: var(--muted, #767B84); }
+
+  
+  /* ===== Pedido por proveedor (v1.3) ===== */
+  #vista-compras .cp-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+  #vista-compras .cp-tile { background: var(--panel, #fff); border: 1px solid var(--line, #ECEAE8); border-radius: 14px; padding: 12px 14px; }
+  #vista-compras .cp-tile .t { font-size: 12px; font-weight: 600; color: var(--muted, #767B84); }
+  #vista-compras .cp-tile .v { font-size: 24px; font-weight: 800; letter-spacing: -.02em; margin-top: 2px; white-space: nowrap; }
+  #vista-compras .cp-tile .v.rojo { color: #B03030; }
+  #vista-compras .cp-tile .s { font-size: 11px; font-weight: 600; color: var(--muted, #767B84); margin-top: 2px; }
+  #vista-compras .cp-aviso b { font-weight: 800; }
+  #vista-compras .cp-aviso .cp-btn { margin-top: 8px; }
+  #vista-compras .cp-ped-tools { display: flex; gap: 8px; margin: 0 0 12px; flex-wrap: wrap; }
+  #vista-compras .cp-ped-tools input { flex: 1; min-width: 180px; font: inherit; font-size: 16px; padding: 9px 12px; border: 1px solid var(--line, #ECEAE8); border-radius: 10px; background: var(--panel, #fff); color: var(--ink, #1E2126); }
+  #vista-compras .cp-ped-tools input:focus-visible { outline: 2px solid var(--naranja, #E8672A); outline-offset: 2px; }
+  #vista-compras details.cp-ajustes { margin-bottom: 12px; padding: 12px 14px; }
+  #vista-compras details.cp-ajustes > summary { cursor: pointer; font-size: 14px; font-weight: 700; list-style: none; }
+  #vista-compras details.cp-ajustes > summary::-webkit-details-marker { display: none; }
+  #vista-compras details.cp-ajustes > summary::after { content: ' ▾'; color: var(--muted, #767B84); }
+  #vista-compras details.cp-ajustes[open] > summary { margin-bottom: 8px; }
+
+  #vista-compras .cp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 14px; align-items: start; }
+  #vista-compras .cp-card { background: var(--panel, #fff); border: 1px solid var(--line, #ECEAE8); border-radius: 16px; overflow: hidden; }
+  #vista-compras .cp-card.enviado { opacity: .6; }
+  #vista-compras .cp-card > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 14px 16px 10px; }
+  #vista-compras .cp-card h3 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+  #vista-compras .cp-card .meta { font-size: 12px; font-weight: 600; color: var(--muted, #767B84); margin-top: 3px; }
+  #vista-compras .cp-card .tot { font-size: 21px; font-weight: 800; color: var(--naranja, #E8672A); white-space: nowrap; }
+  #vista-compras .cp-st { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  #vista-compras .cp-st.ok { background: #E3F4EC; color: #1F7A52; }
+  #vista-compras .cp-st.cambios { background: #FFF0D6; color: #9A6200; }
+  #vista-compras .cp-card .ok-env { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #E3F4EC; color: #1F7A52; font-size: 11px; font-weight: 700; }
+  #vista-compras .cp-lin { list-style: none; margin: 0; padding: 0; }
+  #vista-compras .cp-l { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 12px; row-gap: 6px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line, #ECEAE8); }
+  #vista-compras .cp-l.off .nom, #vista-compras .cp-l.off .cp-qty, #vista-compras .cp-l.off .val, #vista-compras .cp-l.off .sub { opacity: .35; text-decoration: line-through; }
+  #vista-compras .cp-l input[type=checkbox] { width: 22px; height: 22px; grid-row: 1 / span 2; align-self: start; margin-top: 1px; accent-color: var(--naranja, #E8672A); }
+  #vista-compras .cp-l .nom { grid-column: 2; grid-row: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.25; }
+  #vista-compras .cp-l .val { grid-column: 3; grid-row: 1; text-align: right; font-size: 16px; font-weight: 800; white-space: nowrap; }
+  #vista-compras .cp-l .val.sc { color: #B03030; font-size: 13px; }
+  #vista-compras .cp-l .sub { grid-column: 2; grid-row: 2; font-size: 11px; font-weight: 600; color: var(--muted, #767B84); line-height: 1.4; min-width: 0; }
+  #vista-compras .cp-l .cp-chip { margin-left: 6px; vertical-align: 1px; }
+  #vista-compras .cp-l .cp-qty { grid-column: 3; grid-row: 2; justify-self: end; }
+  #vista-compras .cp-qty { display: flex; align-items: center; gap: 6px; flex: none; }
+  #vista-compras .cp-qty button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line, #ECEAE8); background: var(--panel, #fff); color: var(--ink, #1E2126); font-size: 20px; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
+  #vista-compras .cp-qty button:focus-visible, #vista-compras .cp-qty input:focus-visible { outline: 2px solid var(--naranja, #E8672A); outline-offset: 2px; }
+  #vista-compras .cp-qty input { width: 74px; box-sizing: border-box; font: inherit; font-size: 20px; font-weight: 800; text-align: center; padding: 6px 2px; border: 1px solid var(--line, #ECEAE8); border-radius: 10px; background: var(--panel, #fff); color: var(--ink, #1E2126); }
+  #vista-compras .cp-qty input.cambiado { border-color: var(--naranja, #E8672A); background: var(--naranja-suave, #FFF3EB); }
+  #vista-compras .cp-qty .u { min-width: 58px; font-size: 12px; font-weight: 700; color: var(--muted, #767B84); line-height: 1.2; }
+  #vista-compras .cp-card > footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--line, #ECEAE8); background: rgba(0,0,0,.015); }
+  #vista-compras .cp-card > footer .msg { flex: 1; min-width: 100px; font-size: 12px; font-weight: 700; color: #1F7A52; text-align: right; }
+
+
+  /* ===== Historial semanal ===== */
+  #vista-compras .cp-bar-f { display: grid; grid-template-columns: 112px 1fr auto 62px; gap: 10px; align-items: center; padding: 6px 0; font-size: 13px; }
+  #vista-compras .cp-bar-f .et { font-weight: 700; }
+  #vista-compras .cp-bar-f .barra { background: rgba(0,0,0,.06); border-radius: 999px; height: 12px; overflow: hidden; }
+  #vista-compras .cp-bar-f .barra i { display: block; height: 100%; background: var(--naranja, #E8672A); border-radius: 999px; }
+  #vista-compras .cp-bar-f .vv { font-weight: 800; text-align: right; white-space: nowrap; }
+  #vista-compras .cp-bar-f .dd { font-size: 11px; font-weight: 700; color: var(--muted, #767B84); }
+  #vista-compras .cp-his-t table { min-width: 0; }
+  #vista-compras .cp-hped { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 4px; font-size: 12px; font-weight: 700; color: var(--muted, #767B84); }
+  #vista-compras .cp-hped .cp-btn { padding: 5px 10px; font-size: 12px; }
+  #vista-compras .cp-hsub { text-align: right; font-size: 12px; font-weight: 700; margin-top: 4px; }
+  #vista-compras details.cp-det .cp-det { margin-left: 10px; }
+  .cp-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 60; max-width: 90vw;
+    background: #1E2126; color: #fff; padding: 11px 18px; border-radius: 12px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 28px rgba(0,0,0,.25); }
+  .cp-toast.err { background: #B03030; }
+  .cp-toast[hidden] { display: none; }
+  /* ===== Proceso en 3 pasos (v1.5) ===== */
+  #vista-compras .cp-pasos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; counter-reset: paso; }
+  #vista-compras .cp-pasos button { position: relative; display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; cursor: pointer;
+    padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line, #ECEAE8); background: var(--panel, #fff); color: var(--ink, #1E2126); min-width: 0; }
+  #vista-compras .cp-pasos button:not(:last-child)::after { content: '›'; position: absolute; right: -9px; top: 50%; transform: translateY(-50%);
+    font-size: 18px; font-weight: 800; color: var(--muted, #767B84); pointer-events: none; }
+  #vista-compras .cp-pasos button:focus-visible { outline: 2px solid var(--naranja, #E8672A); outline-offset: 2px; }
+  #vista-compras .cp-pasos .n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 800;
+    background: #EEEDEB; color: var(--muted, #767B84); }
+  #vista-compras .cp-pasos .tx { min-width: 0; }
+  #vista-compras .cp-pasos b { display: block; font-size: 14px; font-weight: 800; line-height: 1.2; }
+  #vista-compras .cp-pasos small { display: block; font-size: 11px; font-weight: 600; color: var(--muted, #767B84); margin-top: 2px; line-height: 1.3; }
+  #vista-compras .cp-pasos button.hecho .n { background: #E3F4EC; color: #1F7A52; }
+  #vista-compras .cp-pasos button.activo { border-color: var(--naranja, #E8672A); background: var(--naranja-suave, #FFF3EB); }
+  #vista-compras .cp-pasos button.activo .n { background: var(--naranja, #E8672A); color: #fff; }
+  #vista-compras .cp-aviso.ok { background: #E3F4EC; border-color: #BFE3CF; }
+  #vista-compras .cp-nav { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 16px 0 4px; }
+  #vista-compras details.cp-andet { margin-top: 18px; }
+  #vista-compras details.cp-andet > summary { cursor: pointer; list-style: none; font-size: 14px; font-weight: 700; padding: 12px 14px;
+    border: 1px dashed var(--line, #ECEAE8); border-radius: 12px; color: var(--muted, #767B84); background: var(--panel, #fff); }
+  #vista-compras details.cp-andet > summary::-webkit-details-marker { display: none; }
+  #vista-compras details.cp-andet > summary::after { content: ' ▾'; }
+  #vista-compras details.cp-andet[open] > summary { margin-bottom: 12px; color: var(--ink, #1E2126); }
+  @media (max-width: 560px) {
+    #vista-compras .cp-pasos { gap: 6px; }
+    #vista-compras .cp-pasos button { flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px; }
+    #vista-compras .cp-pasos button:not(:last-child)::after { display: none; }
+    #vista-compras .cp-pasos b { font-size: 12.5px; }
+  }
+  @media (max-width: 560px) { #vista-compras .cp-bar-f { grid-template-columns: 90px 1fr auto; } #vista-compras .cp-bar-f .dd { display: none; } }
+  @media (max-width: 560px) { #vista-compras .cp-tiles { grid-template-columns: 1fr; } #vista-compras .cp-cards { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { #vista-compras .cp-kpis { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { #vista-compras .cp-kpis { grid-template-columns: 1fr; } }
+</style>
+
+<div id="vista-compras" hidden>
+  <div class="cp-toast" id="cp-toast" hidden role="status"></div>
+  <nav class="cp-pasos" id="cp-modo" aria-label="Proceso de compras">
+    <button type="button" data-m="inv" class="activo"><span class="n" data-n="1">1</span><span class="tx"><b>Inventario</b><small data-res="inv"></small></span></button>
+    <button type="button" data-m="pedido"><span class="n" data-n="2">2</span><span class="tx"><b>Sugerido de compras</b><small data-res="pedido"></small></span></button>
+    <button type="button" data-m="historial"><span class="n" data-n="3">3</span><span class="tx"><b>Histórico de compras</b><small data-res="historial"></small></span></button>
+  </nav>
+  <div class="cp-barra">
+    <div class="filtros" id="cp-areas">
+      <button type="button" data-a="" class="activo">Todas</button>
+      <button type="button" data-a="Cocina">Cocina</button>
+      <button type="button" data-a="Barra">Barra</button>
+    </div>
+  </div>
+
+  <div class="estado" id="cp-estado"><b>Cargando compras…</b>Cruzando ventas con recetas.</div>
+
+  <div id="cp-inv" hidden>
+    <div class="panel" style="margin-bottom:14px">
+      <h2>Inventario contado</h2>
+      <p class="sub" id="cp-inv-sub"></p>
+      <div class="cp-resumen" id="cp-inv-res"></div>
+      <div class="cp-agrupar"><span>Ordenar por</span>
+        <div class="filtros" id="cp-agr"><button type="button" data-g="cat" class="activo">Categoría</button><button type="button" data-g="prov">Proveedor</button></div>
+      </div>
+      <div class="cp-tools">
+        <input id="cp-inv-busca" type="search" placeholder="Buscar insumo o proveedor…" aria-label="Buscar insumo o proveedor">
+        <button type="button" class="cp-btn" id="cp-ceros">Poner 0 a los vacíos</button>
+      </div>
+      <div id="cp-inv-lista"></div>
+    </div>
+    <div class="cp-guardar">
+      <span class="txt" id="cp-g-txt">Sin cambios por guardar</span>
+      <span class="cp-acciones">
+        <button type="button" class="cp-btn" id="cp-g-ver" hidden>Continuar al sugerido →</button>
+        <button type="button" class="cp-btn fuerte" id="cp-g-btn" disabled>Guardar conteo</button>
+      </span>
+    </div>
+  </div>
+
+  <div id="cp-ped" hidden>
+    <div id="cp-ped-aviso"></div>
+    <section class="cp-tiles" id="cp-ped-res"></section>
+    <details class="panel cp-ajustes">
+      <summary>Ajustar cómo se calcula el pedido</summary>
+      <p class="sub" id="cp-sub"></p>
+      <div class="cp-params">
+        <label>Stock que se usa
+          <select id="cp-src"><option value="conteo" selected>Mi conteo</option><option value="mig">Saldo del MIG</option></select>
+        </label>
+        <label>Semanas para promediar
+          <select id="cp-sem"><option value="2">2 semanas</option><option value="4" selected>4 semanas</option><option value="8">8 semanas</option></select>
+        </label>
+        <label>Días de entrega
+          <input id="cp-ent" type="number" inputmode="decimal" min="0" max="30" step="1" value="2">
+        </label>
+        <label>Días de seguridad
+          <input id="cp-seg" type="number" inputmode="decimal" min="0" max="30" step="1" value="1">
+        </label>
+        <label>Días que quieres cubrir
+          <input id="cp-cob" type="number" inputmode="decimal" min="1" max="60" step="1" value="7">
+        </label>
+      </div>
+      <p class="cp-ayuda">Mínimo = consumo diario × (entrega + seguridad). Máximo = consumo diario × (entrega + días a cubrir). Si el stock está en el mínimo o por debajo, se pide hasta el máximo.</p>
+    </details>
+    <div class="cp-ped-tools">
+      <input id="cp-ped-busca" type="search" placeholder="Buscar proveedor o insumo…" aria-label="Buscar proveedor o insumo">
+      <button type="button" class="cp-btn" id="cp-copiar-todo">Copiar todos</button>
+      <button type="button" class="cp-btn fuerte" id="cp-guardar-todos">Guardar todos los pedidos</button>
+    </div>
+    <div class="cp-cards" id="cp-ped-lista"></div>
+    <p class="nota" id="cp-ped-nota"></p>
+    <details class="cp-andet" id="cp-an-det">
+      <summary>Ver análisis detallado: mínimos, máximos e insumos fuera del modelo</summary>
+      <div id="cp-cuerpo">
+        <p class="sub" id="cp-sub-an" style="margin:0 0 12px"></p>
+        <section class="cp-kpis" id="cp-kpis"></section>
+
+        <div class="panel" style="margin-bottom:14px">
+          <h2>Todos los insumos</h2>
+          <p class="sub">Mínimos y máximos que se mueven con la venta, comparados con el máximo del modelo anterior.</p>
+          <div class="cp-tools"><input id="cp-busca" type="search" placeholder="Buscar insumo o proveedor…" aria-label="Buscar insumo o proveedor"></div>
+          <div class="cp-scroll">
+            <table>
+              <thead><tr>
+                <th>Insumo</th><th class="num">Saldo</th><th class="num">Alcanza</th><th class="num">Consumo / sem.</th>
+                <th class="num">Mínimo</th><th class="num">Máximo</th><th class="num">Máx. anterior</th><th>Estado</th>
+              </tr></thead>
+              <tbody id="cp-filas"></tbody>
+            </table>
+          </div>
+          <button type="button" class="cp-btn cp-mas" id="cp-mas" hidden>Ver más</button>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px">
+          <h2>Se consumen y no están en el modelo de compras</h2>
+          <p class="sub" id="cp-sub-sin"></p>
+          <div class="cp-scroll">
+            <table>
+              <thead><tr><th>Insumo</th><th class="num">Consumo / sem.</th><th class="num">Costo unidad</th><th class="num">Valor / sem.</th><th>Estado</th></tr></thead>
+              <tbody id="cp-sin"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <p class="nota" id="cp-nota"></p>
+      </div>
+    </details>
+    <div class="cp-nav">
+      <button type="button" class="cp-btn" data-ir="inv">← Volver a inventario</button>
+      <button type="button" class="cp-btn fuerte" data-ir="historial">Ir al histórico de compras →</button>
+    </div>
+  </div>
+
+  <div id="cp-his" hidden>
+    <div id="cp-his-aviso"></div>
+    <div class="panel" style="margin-bottom:14px">
+      <h2>Histórico de compras</h2>
+      <p class="sub" id="cp-his-sub">Lo que has guardado desde el Sugerido de compras, semana por semana (lunes a domingo).</p>
+      <div id="cp-his-barras"></div>
+    </div>
+    <div class="panel" style="margin-bottom:14px">
+      <div class="cp-tools" style="margin-top:0"><input id="cp-his-busca" type="search" placeholder="Buscar proveedor o insumo…" aria-label="Buscar proveedor o insumo"></div>
+      <div id="cp-his-lista" class="cp-his-t"></div>
+    </div>
+    <div class="cp-nav">
+      <button type="button" class="cp-btn" data-ir="pedido">← Volver al sugerido de compras</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var vista = document.getElementById('vista-compras');
+  if (!vista) return;
+
+  /* ---------- Utilidades ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  var MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  var fechaTxt = function (f) { if (!f) return ''; var p = f.split('-'); return (+p[2]) + ' ' + MES[+p[1] - 1] + ' ' + p[0]; };
+  var fechaHora = function (f) { if (!f) return ''; var a = String(f).split(' '), p = a[0].split('-'); return (+p[2]) + ' ' + MES[+p[1] - 1] + (a[1] ? ' ' + a[1] : ''); };
+  var corto = function (v) {
+    var a = Math.abs(v), s = v < 0 ? '−' : '';
+    if (a >= 1e6) return s + '$' + (a / 1e6).toFixed(1).replace('.', ',') + ' M';
+    if (a >= 1e3) return s + '$' + Math.round(a / 1e3) + ' mil';
+    return s + '$' + Math.round(a);
+  };
+  var pesos = function (v) { return '$' + Math.round(v).toLocaleString('es-CO'); };
+  var und = function (v) { return Math.abs(v) >= 10 ? Math.round(v).toLocaleString('es-CO') : (Math.round(v * 10) / 10).toString().replace('.', ','); };
+  var norm = function (s) { return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+  var num = function (id, def, min, max) {
+    var v = parseFloat(String($(id).value).replace(',', '.'));
+    if (isNaN(v)) v = def;
+    return Math.min(max, Math.max(min, v));
+  };
+
+  var D = null, AREA = '', BUSCA = '', BUSCA_INV = '', LIMITE = 40, activo = false, cargando = false, CALC = [];
+  var AGRUPAR = 'cat', MODO = 'inv', MODO_FIJADO = false, ED = {}, ITEM = {}, ABIERTOS = {};
+  var BUSCA_PED = '', AJ = {}, EXC = {}, GRP = {}, SAV = {}, DIRTY = {}, TILE = { crit: 0 };
+  var H = null, HCARGA = false, BUSCA_H = '';
+
+  /* ---------- Cálculo (en el navegador, para que responda al instante) ---------- */
+  function params() {
+    return { src: $('cp-src').value, sem: +$('cp-sem').value, ent: num('cp-ent', 2, 0, 30), seg: num('cp-seg', 1, 0, 30), cob: num('cp-cob', 7, 1, 60) };
+  }
+  function calcular(it, P) {
+    var w = it.w.slice(-P.sem);
+    var d = w.reduce(function (a, b) { return a + b; }, 0) / w.length / 7;
+    var de = it.de != null ? it.de : P.ent, dc = it.dc != null ? it.dc : P.cob;
+    var mn = d * (de + P.seg), mx = d * (de + dc);
+    var s = (P.src === 'mig') ? it.s : it.q, sE = s == null ? 0 : Math.max(0, s);
+    var est = 'ok';
+    if (d <= 0) est = 'sin';
+    else if (s == null) est = 'nosaldo';
+    else if (sE <= mn) est = (sE / d < de) ? 'crit' : 'pedir';
+    var packs = 0;
+    if (est === 'pedir' || est === 'crit') packs = Math.max(0, Math.ceil((mx - sE) / it.f - 1e-9));
+    if ((est === 'pedir' || est === 'crit') && packs === 0) est = 'ok';
+    var ant = 0;
+    if (it.mx > 0 && s != null && sE <= it.mx) ant = Math.ceil((it.mx - sE) / it.f - 1e-9) * it.f * it.c;
+    return { it: it, d: d, sem: d * 7, mn: mn, mx: mx, sE: sE, neg: s != null && s < 0, est: est, packs: packs, ped: packs * it.f,
+             costo: packs * it.f * it.c, alc: (d > 0 && s != null) ? sE / d : null, ant: ant };
+  }
+  var ETQ = { ok: ['OK', 'cp-ok'], pedir: ['Pedir', 'cp-pe'], crit: ['Urgente', 'cp-cr'], sin: ['Sin consumo', 'cp-gr'], nosaldo: ['Sin saldo en MIG', 'cp-gr'] };
+  var ORDEN_EST = { crit: 0, pedir: 1, ok: 2, nosaldo: 3, sin: 4 };
+
+  /* ---------- Montaje en la página ---------- */
+  var main = document.querySelector('main.contenido') || document.querySelector('main') || document.body;
+  main.appendChild(vista);
+
+  var menu = document.querySelector('.menu');
+  var otros = Array.prototype.slice.call(document.querySelectorAll('.menu button'));
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.setAttribute('data-vista', 'compras');
+  btn.textContent = 'Compras';
+  if (menu) menu.appendChild(btn);
+  else { btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:5'; document.body.appendChild(btn); }
+  var controles = document.querySelector('.controles');
+  var periodoEl = $('periodo');
+
+  function textoPeriodo() {
+    if (!D || D.vacio) return 'Compras según la venta';
+    return 'Ventas hasta el ' + fechaTxt(D.fechas.ventasHasta) + (D.fechas.conteo ? ' · conteo del ' + fechaHora(D.fechas.conteo) : ' · sin conteo guardado');
+  }
+  function fijarPeriodo() { if (activo && periodoEl && periodoEl.textContent !== textoPeriodo()) periodoEl.textContent = textoPeriodo(); }
+
+  function ocultar() { activo = false; vista.hidden = true; if (controles) controles.style.display = ''; }
+  if (menu) menu.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && b !== btn) ocultar(); }, true);
+  else otros.forEach(function (b) { b.addEventListener('click', ocultar, true); });
+
+  btn.addEventListener('click', function () {
+    activo = true;
+    ['tablero', 'vista-productos'].forEach(function (id) { var e = $(id); if (e) e.hidden = true; });
+    document.querySelectorAll('.menu button').forEach(function (x) { x.classList.toggle('activo', x === btn); });
+    var t = $('titulo'); if (t) t.textContent = 'Compras';
+    if (controles) controles.style.display = 'none';
+    vista.hidden = false;
+    fijarPeriodo();
+    if (!D && !cargando) cargar(); else render();
+  });
+
+  if (window.MutationObserver) {
+    var tab = $('tablero');
+    if (tab) new MutationObserver(function () { if (activo && !tab.hidden) tab.hidden = true; }).observe(tab, { attributes: true, attributeFilter: ['hidden'] });
+    if (periodoEl) new MutationObserver(fijarPeriodo).observe(periodoEl, { childList: true, characterData: true, subtree: true });
+  }
+
+  /* ---------- Carga de datos ---------- */
+  function estado(titulo, texto) {
+    var e = $('cp-estado'); e.hidden = false; e.innerHTML = '<b>' + esc(titulo) + '</b>' + texto; $('cp-inv').hidden = true; $('cp-ped').hidden = true; $('cp-his').hidden = true;
+  }
+  /* ¿El último conteo guardado es de hoy? */
+  function conteoDeHoy() { return !!(D && D.fechas.conteo && D.hoy && D.fechas.conteo.slice(0, 10) === D.hoy); }
+  function cargar() {
+    if (typeof google === 'undefined' || !google.script) return;
+    cargando = true;
+    estado('Cargando compras…', 'Cruzando ventas con recetas.');
+    google.script.run
+      .withSuccessHandler(function (d) {
+        cargando = false; D = d; SAV = d.pedidosHoy || {}; DIRTY = {}; ITEM = {}; (d.items || []).forEach(function (it) { ITEM[it.id] = it; });
+        // Se arranca en el paso 1, salvo que ya se haya contado hoy: entonces en el 2
+        if (!MODO_FIJADO && !d.vacio) { MODO = conteoDeHoy() ? 'pedido' : 'inv'; marcarModo(); }
+        render(); fijarPeriodo();
+        if (!d.vacio && !H) cargarHistorial();   // en segundo plano, para el resumen del paso 3
+      })
+      .withFailureHandler(function (e) { cargando = false; estado('No se pudieron leer las compras', esc(e && e.message) + '. Revisa que los archivos de Compras estén pegados y ejecuta configurarCompras.'); })
+      .getCompras();
+  }
+
+  /* ---------- Pintado ---------- */
+  function visibles() {
+    var b = norm(BUSCA);
+    return CALC.filter(function (r) {
+      if (AREA && r.it.a !== AREA) return false;
+      return !b || norm(r.it.n + ' ' + r.it.p).indexOf(b) >= 0;
+    });
+  }
+
+  function calcularTodo() {
+    var P = params();
+    ETQ.nosaldo[0] = P.src === 'mig' ? 'Sin saldo en MIG' : 'Sin conteo';
+    CALC = D.items.map(function (it) { return calcular(it, P); });
+    return P;
+  }
+  function textoFuente(P) {
+    return P.src === 'mig' ? 'Stock: saldo del MIG al ' + fechaTxt(D.fechas.saldos) + '.' : (D.fechas.conteo ? 'Stock: tu conteo del ' + fechaHora(D.fechas.conteo) + '.' : 'Todavía no hay conteo guardado: cuéntalo en Inventario.');
+  }
+  function textoPromedio(P) {
+    var s0 = D.semanas[D.semanas.length - P.sem];
+    return 'Consumo promedio de las últimas ' + P.sem + ' semanas completas (lunes a domingo), desde el ' + fechaTxt(s0.i) + ' hasta el ' + fechaTxt(D.fechas.semanaFin) + '. ';
+  }
+
+  /* ---------- Análisis (lo que antes estaba mezclado con el pedido) ---------- */
+  function pintarAnalisis() {
+    if (!D || D.vacio) return;
+    var P = calcularTodo();
+    var base = CALC.filter(function (r) { return !AREA || r.it.a === AREA; });
+    var pedir = base.filter(function (r) { return r.packs > 0; });
+    var total = pedir.reduce(function (a, r) { return a + r.costo; }, 0);
+    var crit = base.filter(function (r) { return r.est === 'crit'; }).length;
+    var ant = base.reduce(function (a, r) { return a + r.ant; }, 0);
+    var dif = total - ant;
+    var sinC = base.filter(function (r) { return r.est === 'nosaldo'; }).length;
+    $('cp-kpis').innerHTML =
+      kpi('Pedido sugerido', corto(total), pedir.length + (pedir.length === 1 ? ' insumo por pedir' : ' insumos por pedir') + (sinC ? ' · ' + sinC + (P.src === 'mig' ? ' sin saldo' : ' sin contar') : ''), '') +
+      kpi('Urgentes', String(crit), crit ? 'No alcanzan hasta que llegue el pedido' : 'Todo alcanza hasta la entrega', crit ? 'rojo' : 'verde') +
+      kpi('Con el modelo anterior', corto(ant), ant > 0 ? (dif <= 0 ? 'El dinámico pide ' + corto(-dif) + ' menos' : 'El dinámico pide ' + corto(dif) + ' más') : 'Sin máximos anteriores cargados', '') +
+      kpi('Ventas con receta', Math.round(D.cobertura.pct * 100) + '%', D.cobertura.nSinReceta ? D.cobertura.nSinReceta + ' productos vendidos sin receta' : 'Todo lo vendido tiene receta', D.cobertura.pct >= 0.95 ? 'verde' : '');
+    $('cp-sub-an').textContent = textoPromedio(P) + textoFuente(P);
+    pintarTabla();
+    pintarSin();
+    $('cp-nota').textContent = P.src === 'mig' ? 'Los saldos vienen del último reporte Saldos de bodega (' + fechaTxt(D.fechas.saldos) + '). Entre un reporte y el siguiente el saldo no se mueve.' : 'Los insumos sin conteo no entran al pedido: cuéntalos en Inventario.';
+  }
+
+  function kpi(t, v, s, cls) {
+    return '<div class="cp-kpi"><div class="t">' + esc(t) + '</div><div class="v ' + (cls || '') + '">' + esc(v) + '</div><div class="s">' + esc(s) + '</div></div>';
+  }
+
+  /* ---------- Pedido por proveedor: una tarjeta lista para enviar ---------- */
+  var hoyTxt = function () { var d = new Date(); return d.getDate() + ' ' + MES[d.getMonth()] + ' ' + d.getFullYear(); };
+
+  /* "INS.DON JULIO 70 BT (ML)" -> "Don Julio 70 BT" */
+  function limpiar(n) {
+    var t = String(n).replace(/^\s*INS\.?\s*/i, '').replace(/\((ML|GR|GRS|UND|UNID|PROD)\)/gi, '').replace(/\s+/g, ' ').trim();
+    var peq = { de: 1, del: 1, la: 1, el: 1, y: 1, con: 1, en: 1, x: 1 };
+    var sig = { bt: 1, ml: 1, gr: 1, grs: 1, kg: 1, und: 1, lt: 1, lts: 1, cm: 1, cms: 1 };
+    return t.toLowerCase().split(' ').map(function (w, i) {
+      if (sig[w]) return w.toUpperCase();
+      if (i > 0 && peq[w]) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+  }
+  function cant(r) { return Object.prototype.hasOwnProperty.call(AJ, r.it.id) ? AJ[r.it.id] : r.packs; }
+  function unidadPedido(it, n) {
+    if (it.f > 1) { var bt = it.f >= 500 && it.u === 'ml'; return n === 1 ? (bt ? 'botella' : 'paquete') : (bt ? 'botellas' : 'paquetes'); }
+    return it.u || 'und';
+  }
+  function detalleCant(it, n) {
+    if (it.f > 1) return '× ' + und(it.f) + ' ' + it.u;
+    if (it.u === 'g' && n >= 1000) return '= ' + und(n / 1000) + ' kg';
+    if (it.u === 'ml' && n >= 1000) return '= ' + und(n / 1000) + ' L';
+    return '';
+  }
+  function paso(it, n) { return it.f > 1 ? 1 : ((it.u === 'g' || it.u === 'ml') ? (n < 100 ? 10 : n < 1000 ? 100 : n < 10000 ? 500 : 1000) : 1); }
+  function costoLinea(r) { return EXC[r.it.id] ? 0 : cant(r) * r.it.f * r.it.c; }
+  function totalGrupo(g) { return g.l.reduce(function (a, r) { return a + costoLinea(r); }, 0); }
+  function lineasOn(g) { return g.l.filter(function (r) { return !EXC[r.it.id] && cant(r) > 0; }); }
+  function precioUnidad(it) {
+    if (!(it.c > 0)) return 'sin costo';
+    if (it.f > 1) return pesos(it.f * it.c) + ' c/u';
+    if (it.u === 'g') return pesos(it.c * 1000) + '/kg';
+    if (it.u === 'ml') return pesos(it.c * 1000) + '/L';
+    return pesos(it.c) + '/' + (it.u || 'und');
+  }
+  function valorTxt(r) {
+    var it = r.it, c = cant(r);
+    if (EXC[it.id] || c <= 0) return '—';
+    if (!(it.c > 0)) return 'Sin costo';
+    return pesos(c * it.f * it.c);
+  }
+  function subLinea(r) {
+    var it = r.it, c = cant(r), p = [];
+    var d = detalleCant(it, c); if (d) p.push(d);
+    p.push(precioUnidad(it));
+    if (r.alc != null) p.push('hoy alcanza ' + und(r.alc) + ' d');
+    return p.join(' · ');
+  }
+  function gruposPedido() {
+    var b = norm(BUSCA_PED), g = {};
+    CALC.forEach(function (r) {
+      if (r.packs <= 0) return;
+      if (AREA && r.it.a !== AREA) return;
+      if (b && norm(r.it.n + ' ' + r.it.p).indexOf(b) < 0) return;
+      (g[r.it.p] = g[r.it.p] || { p: r.it.p, l: [] }).l.push(r);
+    });
+    return Object.keys(g).sort(function (x, y) { return x.localeCompare(y, 'es'); }).map(function (k) {
+      g[k].l.sort(function (a, c) { return ((c.est === 'crit') - (a.est === 'crit')) || limpiar(a.it.n).localeCompare(limpiar(c.it.n), 'es'); });
+      return g[k];
+    });
+  }
+  function textoProveedor(g) {
+    var t = '*PEDIDO TAXCO* · ' + hoyTxt() + '\n*Para:* ' + g.p + '\n\n';
+    lineasOn(g).forEach(function (r) {
+      var c = cant(r), it = r.it, d = detalleCant(it, c);
+      t += '• ' + limpiar(it.n) + ' — ' + und(c) + ' ' + unidadPedido(it, c) + (d ? ' (' + d + ')' : '') + '\n';
+    });
+    return t + '\nGracias.';
+  }
+
+  function enviado(p) { return !!(SAV[p] && SAV[p].e === 'Enviado'); }
+  function sinCosto(g) { return lineasOn(g).filter(function (r) { return !(r.it.c > 0); }).length; }
+
+  function pintarTiles() {
+    var grupos = Object.keys(GRP).map(function (k) { return GRP[k]; });
+    var total = grupos.reduce(function (a, g) { return a + totalGrupo(g); }, 0);
+    var nLin = grupos.reduce(function (a, g) { return a + lineasOn(g).length; }, 0);
+    var nG = grupos.filter(function (g) { return SAV[g.p]; }).length, nE = grupos.filter(function (g) { return enviado(g.p); }).length;
+    $('cp-ped-res').innerHTML =
+      tile('Total del pedido', pesos(total), nLin + (nLin === 1 ? ' insumo' : ' insumos'), '') +
+      tile('Proveedores', String(grupos.length), nG ? nG + (nG === 1 ? ' guardado' : ' guardados') + (nE ? ' · ' + nE + (nE === 1 ? ' enviado' : ' enviados') : '') : 'Ninguno guardado', '') +
+      tile('Urgentes', String(TILE.crit), TILE.crit ? 'No alcanzan hasta la entrega' : 'Todo alcanza', TILE.crit ? 'rojo' : '');
+  }
+
+  function pintarPedidoVista() {
+    if (!D || D.vacio) return;
+    var P = calcularTodo();
+    var grupos = gruposPedido();
+    GRP = {}; grupos.forEach(function (g) { GRP[g.p] = g; });
+    var base = CALC.filter(function (r) { return !AREA || r.it.a === AREA; });
+    TILE.crit = base.filter(function (r) { return r.est === 'crit'; }).length;
+    var sinC = base.filter(function (r) { return r.est === 'nosaldo'; }).length;
+
+    var av = '', nEd = cambiosConteo(), rs = resumenSugerido();
+    if (P.src === 'conteo' && !D.fechas.conteo) av += '<div class="cp-aviso"><b>Primero cuenta el inventario (paso 1).</b> El sugerido se arma con lo que cuentes.<br><button type="button" class="cp-btn fuerte" data-ir="inv">Ir a contar</button></div>';
+    else {
+      if (nEd) av += '<div class="cp-aviso"><b>' + nEd + (nEd === 1 ? ' cambio del conteo sin guardar.' : ' cambios del conteo sin guardar.') + '</b> El sugerido usa el último conteo guardado.<br><button type="button" class="cp-btn fuerte" data-ir="inv">Volver a inventario y guardar</button></div>';
+      else if (P.src === 'conteo' && !conteoDeHoy()) av += '<div class="cp-aviso"><b>El último conteo es del ' + esc(fechaHora(D.fechas.conteo)) + '.</b> Si el inventario cambió, actualízalo antes de pedir.<br><button type="button" class="cp-btn" data-ir="inv">Actualizar conteo</button></div>';
+      if (P.src === 'conteo' && sinC) av += '<div class="cp-aviso"><b>' + sinC + (sinC === 1 ? ' insumo sin contar</b> no entra' : ' insumos sin contar</b> no entran') + ' al sugerido.<br><button type="button" class="cp-btn" data-ir="inv">Contarlos</button></div>';
+    }
+    if (rs.n && !rs.pend) av += '<div class="cp-aviso ok"><b>Todos los pedidos están guardados.</b> Ya puedes verlos en el histórico.<br><button type="button" class="cp-btn fuerte" data-ir="historial">Ir al histórico de compras →</button></div>';
+    $('cp-ped-aviso').innerHTML = av;
+    pintarTiles();
+    $('cp-sub').textContent = textoPromedio(P) + textoFuente(P);
+
+    $('cp-ped-lista').innerHTML = grupos.length ? grupos.map(cardHtml).join('') :
+      '<div class="cp-vacio" style="grid-column:1/-1">' + (D.fechas.conteo || P.src === 'mig' ? 'Nada por pedir con estos parámetros.' : 'Cuenta tu inventario para ver el pedido.') + '</div>';
+    $('cp-guardar-todos').disabled = !grupos.length;
+    $('cp-ped-nota').textContent = 'Puedes cambiar cantidades con − y +, o quitar un insumo con la casilla. Guardar un pedido lo deja en el Histórico de compras; si lo guardas otra vez el mismo día, reemplaza el anterior.';
+    if ($('cp-an-det').open) pintarAnalisis();
+  }
+
+  /* ---------- Resumen de los 3 pasos ---------- */
+  /* Pedidos del sugerido (sin el filtro de búsqueda): cuántos proveedores, total y cuántos falta guardar */
+  function resumenSugerido() {
+    var g = {};
+    CALC.forEach(function (r) {
+      if (r.packs <= 0 || (AREA && r.it.a !== AREA)) return;
+      (g[r.it.p] = g[r.it.p] || { p: r.it.p, l: [] }).l.push(r);
+    });
+    var gs = Object.keys(g).map(function (k) { return g[k]; }).filter(function (x) { return lineasOn(x).length; });
+    return {
+      n: gs.length,
+      total: gs.reduce(function (a, x) { return a + totalGrupo(x); }, 0),
+      pend: gs.filter(function (x) { return !SAV[x.p] || DIRTY[x.p]; }).length
+    };
+  }
+  function cambiosConteo() { return D.items.filter(sucio).length; }
+  function pintarPasos() {
+    if (!D || D.vacio) return;
+    var its = D.items.filter(function (it) { return !AREA || it.a === AREA; });
+    var cont = its.filter(function (it) { return it.cv != null; }).length, nEd = cambiosConteo();
+    var t1 = cont + ' de ' + its.length + ' contados' + (nEd ? ' · ' + nEd + ' sin guardar' : (D.fechas.conteo ? ' · ' + (conteoDeHoy() ? 'hoy ' + D.fechas.conteo.slice(11, 16) : fechaHora(D.fechas.conteo)) : ''));
+    calcularTodo();
+    var rs = resumenSugerido();
+    var t2 = rs.n ? pesos(rs.total) + ' · ' + rs.n + (rs.n === 1 ? ' proveedor' : ' proveedores') + (rs.pend ? ' · ' + rs.pend + ' sin guardar' : ' · guardados') : 'Nada por pedir';
+    var t3 = 'Pedidos guardados', semT = 0, semN = 0;
+    if (H) {
+      var lun = lunesDe(H.hoy);
+      H.pedidos.forEach(function (p) { if (p.s === lun) { semN++; semT += p.t; } });
+      t3 = semN ? 'Esta semana: ' + pesos(semT) + ' · ' + semN + (semN === 1 ? ' pedido' : ' pedidos') : 'Sin pedidos esta semana';
+    }
+    var res = { inv: t1, pedido: t2, historial: t3 };
+    var hecho = { inv: conteoDeHoy() && !nEd, pedido: rs.n > 0 && !rs.pend, historial: false };
+    document.querySelectorAll('#cp-modo button').forEach(function (b) {
+      var m = b.getAttribute('data-m');
+      b.querySelector('[data-res]').textContent = res[m];
+      b.classList.toggle('hecho', !!hecho[m]);
+      var n = b.querySelector('.n');
+      n.textContent = hecho[m] && m !== MODO ? '✓' : n.getAttribute('data-n');
+    });
+  }
+  function tile(t, v, s, cls) { return '<div class="cp-tile"><div class="t">' + esc(t) + '</div><div class="v ' + (cls || '') + '">' + esc(v) + '</div><div class="s">' + esc(s) + '</div></div>'; }
+
+  function lineaHtml(r) {
+    var it = r.it, c = cant(r), off = !!EXC[it.id];
+    return '<li class="cp-l' + (off ? ' off' : '') + '" data-id="' + esc(it.id) + '">' +
+      '<input type="checkbox" class="cp-inc"' + (off ? '' : ' checked') + ' aria-label="Incluir ' + esc(limpiar(it.n)) + '">' +
+      '<div class="nom">' + esc(limpiar(it.n)) + (r.est === 'crit' ? '<span class="cp-chip cp-cr">Urgente</span>' : '') + '</div>' +
+      '<div class="val' + (it.c > 0 ? '' : ' sc') + '">' + esc(valorTxt(r)) + '</div>' +
+      '<div class="sub">' + esc(subLinea(r)) + '</div>' +
+      '<div class="cp-qty"><button type="button" class="cp-baja" aria-label="Menos">−</button>' +
+      '<input class="cp-pq' + (c !== r.packs ? ' cambiado' : '') + '" type="number" inputmode="decimal" min="0" step="any" value="' + c + '" aria-label="Cantidad de ' + esc(limpiar(it.n)) + '">' +
+      '<button type="button" class="cp-sube" aria-label="Más">+</button><span class="u">' + esc(unidadPedido(it, c)) + '</span></div></li>';
+  }
+  function metaGrupo(g) {
+    var n = lineasOn(g).length, u = g.l.filter(function (r) { return r.est === 'crit' && !EXC[r.it.id]; }).length, sc = sinCosto(g);
+    return n + (n === 1 ? ' insumo' : ' insumos') + (u ? ' · ' + u + (u === 1 ? ' urgente' : ' urgentes') : '') + (sc ? ' · ' + sc + ' sin costo' : '');
+  }
+  function estadoChip(p) {
+    var s = SAV[p]; if (!s) return '';
+    if (DIRTY[p]) return '<span class="cp-st cambios">Cambios sin guardar</span>';
+    return '<span class="cp-st ok">' + (s.e === 'Enviado' ? 'Enviado ✓' : 'Guardado ✓') + ' · ' + esc(fechaHora(s.f)) + '</span>';
+  }
+  function textoGuardar(p) { return !SAV[p] ? 'Guardar pedido' : (DIRTY[p] ? 'Guardar cambios' : 'Guardado ✓'); }
+  function cardHtml(g) {
+    var env = enviado(g.p) && !DIRTY[g.p];
+    return '<article class="cp-card' + (env ? ' enviado' : '') + '" data-p="' + esc(g.p) + '">' +
+      '<header><div><h3>' + esc(g.p) + '</h3><div class="meta">' + esc(metaGrupo(g)) + '</div><div class="est">' + estadoChip(g.p) + '</div></div><div class="tot">' + esc(pesos(totalGrupo(g))) + '</div></header>' +
+      '<ul class="cp-lin">' + g.l.map(lineaHtml).join('') + '</ul>' +
+      '<footer><button type="button" class="cp-btn" data-act="copiar">Copiar</button><button type="button" class="cp-btn fuerte" data-act="wa">WhatsApp</button>' +
+      '<button type="button" class="cp-btn" data-act="guardar">' + textoGuardar(g.p) + '</button>' +
+      '<button type="button" class="cp-btn" data-act="env">' + (enviado(g.p) ? 'Quitar enviado' : 'Marcar enviado') + '</button><span class="msg"></span></footer></article>';
+  }
+  /* Actualiza solo los números de una tarjeta (para no perder el foco al escribir) */
+  function refrescarCard(art) {
+    var g = GRP[art.getAttribute('data-p')]; if (!g) return;
+    art.querySelector('.tot').textContent = pesos(totalGrupo(g));
+    art.querySelector('.meta').textContent = metaGrupo(g);
+    art.querySelector('.est').innerHTML = estadoChip(g.p);
+    art.classList.toggle('enviado', enviado(g.p) && !DIRTY[g.p]);
+    var bg = art.querySelector('[data-act=guardar]'); if (bg) bg.textContent = textoGuardar(g.p);
+    g.l.forEach(function (r) {
+      var li = art.querySelector('li[data-id="' + (window.CSS && CSS.escape ? CSS.escape(r.it.id) : r.it.id) + '"]'); if (!li) return;
+      var c = cant(r);
+      li.classList.toggle('off', !!EXC[r.it.id]);
+      li.querySelector('.sub').textContent = subLinea(r);
+      li.querySelector('.val').textContent = valorTxt(r);
+      li.querySelector('.u').textContent = unidadPedido(r.it, c);
+      li.querySelector('.cp-pq').classList.toggle('cambiado', c !== r.packs);
+    });
+    pintarTiles();
+    pintarPasos();
+  }
+  function copiarTexto(txt, msgEl, ok) {
+    var listo = function () { if (msgEl) { msgEl.textContent = ok || 'Copiado ✓'; setTimeout(function () { msgEl.textContent = ''; }, 2500); } };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(listo, function () { prompt('Copia el pedido:', txt); });
+    else { var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); listo(); } catch (e) { prompt('Copia el pedido:', txt); } document.body.removeChild(ta); }
+  }
+  function toast(txt, err) {
+    var t = $('cp-toast'); t.textContent = txt; t.className = 'cp-toast' + (err ? ' err' : ''); t.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 3800);
+  }
+  function reiniciarAjustes() {
+    AJ = {}; EXC = {};
+    Object.keys(SAV).forEach(function (p) { DIRTY[p] = true; });
+  }
+
+  /* Guarda en la hoja PEDIDOS uno o varios proveedores (una sola llamada al servidor) */
+  function guardarGrupos(gs, estadoDe, btn) {
+    var lista = [];
+    gs.forEach(function (g) {
+      var lin = lineasOn(g); if (!lin.length) return;
+      lista.push({ p: g.p, estado: estadoDe(g), lineas: lin.map(function (r) { return { id: r.it.id, c: cant(r) }; }) });
+    });
+    if (!lista.length) { toast('No hay insumos con cantidad para guardar.', true); return; }
+    var ant = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (btn) { btn.disabled = false; btn.textContent = ant; }
+        var rr = (res && res.resultados) || [], rem = 0, tot = 0;
+        rr.forEach(function (x) { SAV[x.p] = { id: x.id, f: res.fecha, e: x.estado }; delete DIRTY[x.p]; if (x.reemplazo) rem++; tot += x.total; });
+        H = null;
+        pintarPedidoVista();
+        pintarPasos();
+        cargarHistorial();
+        toast('Guardado ✓ ' + rr.length + (rr.length === 1 ? ' pedido' : ' pedidos') + ' · ' + pesos(tot) + (rem ? ' (reemplazó ' + rem + ' de hoy)' : ''));
+      })
+      .withFailureHandler(function (e) {
+        if (btn) { btn.disabled = false; btn.textContent = ant; }
+        toast('No se pudo guardar: ' + ((e && e.message) || 'intenta de nuevo'), true);
+      })
+      .guardarPedidos(lista);
+  }
+  var estadoActual = function (g) { return enviado(g.p) ? 'Enviado' : 'Guardado'; };
+
+  function alClicPedido(e) {
+    var art = e.target.closest('.cp-card'); if (!art) return;
+    var g = GRP[art.getAttribute('data-p')]; if (!g) return;
+    var msg = art.querySelector('.msg');
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.classList.contains('cp-baja') || b.classList.contains('cp-sube')) {
+      var li = b.closest('li'), r = g.l.filter(function (x) { return x.it.id === li.getAttribute('data-id'); })[0]; if (!r) return;
+      var c = cant(r), p = paso(r.it, c);
+      var nuevo = Math.max(0, Math.round((c + (b.classList.contains('cp-sube') ? p : -p)) * 1000) / 1000);
+      AJ[r.it.id] = nuevo; DIRTY[g.p] = true; li.querySelector('.cp-pq').value = nuevo; refrescarCard(art); return;
+    }
+    var act = b.getAttribute('data-act');
+    if (act === 'copiar') copiarTexto(textoProveedor(g), msg);
+    else if (act === 'wa') {
+      var txt = textoProveedor(g), w = null;
+      try { w = window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank'); } catch (x) { w = null; }
+      if (!w) copiarTexto(txt, msg, 'Copiado: pégalo en WhatsApp');
+    } else if (act === 'guardar') guardarGrupos([g], estadoActual, b);
+    else if (act === 'env') { var nuevoE = enviado(g.p) ? 'Guardado' : 'Enviado'; guardarGrupos([g], function () { return nuevoE; }, b); }
+  }
+  function alCambiarPedido(e) {
+    var art = e.target.closest('.cp-card'); if (!art) return;
+    var g = GRP[art.getAttribute('data-p')]; if (!g) return;
+    var li = e.target.closest('li'); if (!li) return;
+    var r = g.l.filter(function (x) { return x.it.id === li.getAttribute('data-id'); })[0]; if (!r) return;
+    if (e.target.classList.contains('cp-pq')) {
+      var v = parseFloat(String(e.target.value).replace(',', '.'));
+      if (isNaN(v)) return;
+      AJ[r.it.id] = Math.max(0, v); DIRTY[g.p] = true; refrescarCard(art);
+    } else if (e.target.classList.contains('cp-inc')) {
+      if (e.target.checked) delete EXC[r.it.id]; else EXC[r.it.id] = true;
+      DIRTY[g.p] = true; refrescarCard(art);
+    }
+  }
+
+  /* ---------- Historial: lo guardado, semana por semana ---------- */
+  function rangoSemana(sem) {
+    var f = sem.split('-'), a = new Date(Date.UTC(+f[0], +f[1] - 1, +f[2])), b = new Date(a.getTime() + 6 * 86400000);
+    var ma = a.getUTCMonth(), mb = b.getUTCMonth();
+    return a.getUTCDate() + (ma !== mb ? ' ' + MES[ma] : '') + ' – ' + b.getUTCDate() + ' ' + MES[mb];
+  }
+  function lunesDe(f) {
+    var p = f.split('-'), d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])), atras = (d.getUTCDay() + 6) % 7;
+    return new Date(d.getTime() - atras * 86400000).toISOString().slice(0, 10);
+  }
+  function cargarHistorial() {
+    if (HCARGA) return;
+    HCARGA = true;
+    google.script.run
+      .withSuccessHandler(function (res) { HCARGA = false; H = res; if (MODO === 'historial') pintarHistorial(); pintarPasos(); })
+      .withFailureHandler(function (e) { HCARGA = false; $('cp-his-lista').innerHTML = '<div class="cp-vacio">No se pudo leer el registro: ' + esc(e && e.message) + '</div>'; })
+      .getPedidos();
+  }
+  function pintarHistorial() {
+    calcularTodo();
+    var rs = resumenSugerido();
+    $('cp-his-aviso').innerHTML = rs.pend ? '<div class="cp-aviso"><b>' + rs.pend + (rs.pend === 1 ? ' pedido del sugerido sin guardar.' : ' pedidos del sugerido sin guardar.') + '</b> No aparecen aquí hasta que los guardes.<br><button type="button" class="cp-btn fuerte" data-ir="pedido">Ir al sugerido de compras</button></div>' : '';
+    if (!H) { $('cp-his-barras').innerHTML = ''; $('cp-his-lista').innerHTML = '<div class="cp-vacio">Cargando registro…</div>'; cargarHistorial(); return; }
+    var b = norm(BUSCA_H), peds = [];
+    H.pedidos.forEach(function (p) {
+      var coincide = !b || norm(p.p).indexOf(b) >= 0;
+      var ls = p.l.filter(function (l) { return (!AREA || l.a === AREA) && (coincide || norm(l.n).indexOf(b) >= 0); });
+      if (!ls.length) return;
+      peds.push({ id: p.id, f: p.f, s: p.s, p: p.p, e: p.e, l: ls, t: ls.reduce(function (a, l) { return a + l.v; }, 0) });
+    });
+    var sem = {};
+    peds.forEach(function (p) { var w = sem[p.s] = sem[p.s] || { s: p.s, t: 0, peds: [] }; w.t += p.t; w.peds.push(p); });
+    var semanas = Object.keys(sem).sort().reverse().map(function (k) { return sem[k]; });
+    if (!semanas.length) {
+      $('cp-his-barras').innerHTML = '';
+      $('cp-his-lista').innerHTML = '<div class="cp-vacio">' + (H.pedidos.length ? 'No hay pedidos con ese filtro.' : 'Todavía no has guardado pedidos. Guárdalos en el paso 2, Sugerido de compras, y aparecerán aquí.') + '</div>';
+      return;
+    }
+    var top = semanas.slice(0, 8), mx = Math.max.apply(null, top.map(function (w) { return w.t; }).concat([1]));
+    $('cp-his-barras').innerHTML = top.map(function (w, i) {
+      var prev = semanas[i + 1], enCurso = w.s === lunesDe(H.hoy), d = (prev && prev.t > 0 && !enCurso) ? (w.t / prev.t - 1) : null;
+      return '<div class="cp-bar-f"><span class="et">' + esc(rangoSemana(w.s)) + (enCurso ? ' <small style="color:var(--muted,#767B84)">en curso</small>' : '') + '</span><span class="barra"><i style="width:' + Math.max(2, Math.round(w.t / mx * 100)) + '%"></i></span><span class="vv">' + esc(pesos(w.t)) + '</span><span class="dd">' + (d === null ? '' : (d >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(d * 100)) + '%') + '</span></div>';
+    }).join('');
+
+    $('cp-his-lista').innerHTML = semanas.map(function (w, i) {
+      var provs = {};
+      w.peds.forEach(function (p) { (provs[p.p] = provs[p.p] || { p: p.p, t: 0, peds: [] }); provs[p.p].t += p.t; provs[p.p].peds.push(p); });
+      var lista = Object.keys(provs).sort(function (x, y) { return x.localeCompare(y, 'es'); }).map(function (k) { return provs[k]; });
+      var cuerpo = lista.map(function (pv) {
+        var peds2 = pv.peds.slice().sort(function (x, y) { return x.f < y.f ? -1 : 1; }).map(function (p) {
+          var filas = p.l.map(function (l) { return '<tr><td>' + esc(limpiar(l.n)) + '</td><td class="num">' + und(l.c) + ' ' + esc(l.u) + '</td><td class="num">' + esc(pesos(l.v)) + '</td></tr>'; }).join('');
+          return '<div class="cp-hped"><span>' + esc(fechaHora(p.f)) + ' · <span class="cp-st ' + (p.e === 'Enviado' ? 'ok' : 'cambios') + '" style="margin:0">' + esc(p.e || 'Guardado') + '</span></span><button type="button" class="cp-btn" data-del="' + esc(p.id) + '">Eliminar</button></div>' +
+            '<div class="cp-scroll"><table><thead><tr><th>Insumo</th><th class="num">Cantidad</th><th class="num">Valor</th></tr></thead><tbody>' + filas + '</tbody></table></div>' +
+            (pv.peds.length > 1 ? '<div class="cp-hsub">Subtotal ' + esc(pesos(p.t)) + '</div>' : '');
+        }).join('');
+        return '<details class="cp-det"><summary><span>' + esc(pv.p) + '<em>' + pv.peds.length + (pv.peds.length === 1 ? ' pedido' : ' pedidos') + '</em></span><b>' + esc(pesos(pv.t)) + '</b></summary>' + peds2 + '</details>';
+      }).join('');
+      return '<details class="cp-det"' + (i === 0 || b ? ' open' : '') + '><summary><span>Semana ' + esc(rangoSemana(w.s)) + '<em>' + lista.length + (lista.length === 1 ? ' proveedor' : ' proveedores') + ' · ' + w.peds.length + (w.peds.length === 1 ? ' pedido' : ' pedidos') + '</em></span><b>' + esc(pesos(w.t)) + '</b></summary>' + cuerpo + '</details>';
+    }).join('');
+  }
+  function alClicHistorial(e) {
+    var d = e.target.closest('[data-del]'); if (!d) return;
+    var id = d.getAttribute('data-del');
+    if (!window.confirm('¿Eliminar este pedido del registro? No se puede deshacer.')) return;
+    d.disabled = true;
+    google.script.run
+      .withSuccessHandler(function () {
+        Object.keys(SAV).forEach(function (p) { if (SAV[p].id === id) { delete SAV[p]; delete DIRTY[p]; } });
+        H = null; pintarHistorial(); toast('Pedido eliminado');
+      })
+      .withFailureHandler(function (er) { d.disabled = false; toast('No se pudo eliminar: ' + ((er && er.message) || 'intenta de nuevo'), true); })
+      .eliminarPedido(id);
+  }
+
+  function pintarTabla() {
+    var lista = visibles().slice().sort(function (a, b) {
+      return (ORDEN_EST[a.est] - ORDEN_EST[b.est]) || (b.sem * b.it.c - a.sem * a.it.c);
+    });
+    var corte = lista.slice(0, LIMITE);
+    $('cp-filas').innerHTML = corte.length ? corte.map(function (r) {
+      var et = ETQ[r.est], u = esc(r.it.u);
+      return '<tr><td>' + esc(r.it.n) + '<small class="cp-p">' + esc(r.it.a) + ' · ' + esc(r.it.p) + '</small></td>' +
+        '<td class="num">' + (r.it.s == null ? '—' : und(r.it.s)) + (r.neg ? ' <span class="cp-chip cp-cr">negativo</span>' : '') + '<small class="cp-p">' + u + '</small></td>' +
+        '<td class="num">' + (r.alc == null ? '—' : und(r.alc) + ' d') + '</td>' +
+        '<td class="num">' + und(r.sem) + '</td><td class="num">' + und(r.mn) + '</td><td class="num">' + und(r.mx) + '</td>' +
+        '<td class="num">' + (r.it.mx > 0 ? und(r.it.mx) : '—') + '</td>' +
+        '<td><span class="cp-chip ' + et[1] + '">' + et[0] + '</span></td></tr>';
+    }).join('') : '<tr><td colspan="8" class="cp-vacio">No hay insumos con ese filtro.</td></tr>';
+    $('cp-mas').hidden = lista.length <= LIMITE;
+    $('cp-mas').textContent = 'Ver más (' + (lista.length - LIMITE) + ')';
+  }
+
+  function pintarSin() {
+    var l = D.sinParam;
+    $('cp-sub-sin').textContent = D.nSinParam ? D.nSinParam + ' insumos se gastan según las recetas pero no tienen proveedor ni máximos. Los de mayor valor, primero. Agrégalos en la pestaña COMPRAS_PARAM.' : 'Todo lo que se consume está en el modelo.';
+    $('cp-sin').innerHTML = l.slice(0, 15).map(function (x) {
+      return '<tr><td>' + esc(x.n) + '<small class="cp-p">' + esc(x.fam) + '</small></td><td class="num">' + und(x.sem) + ' ' + esc(x.u) + '</td><td class="num">' + (x.c ? pesos(x.c) : '—') + '</td><td class="num">' + (x.c ? corto(x.v) : '—') + '</td>' +
+        '<td>' + (x.rev ? '<span class="cp-chip cp-pe">En revisión</span>' : '<span class="cp-chip cp-gr">Sin cargar</span>') + '</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="cp-vacio">Sin datos.</td></tr>';
+  }
+
+/* ---------- Paso activo: Inventario → Sugerido de compras → Histórico de compras ---------- */
+  function marcarModo() {
+    document.querySelectorAll('#cp-modo button').forEach(function (x) { x.classList.toggle('activo', x.getAttribute('data-m') === MODO); });
+  }
+  function render() {
+    if (!D) return;
+    if (D.vacio) { estado('Falta preparar los datos', (D.falta || []).map(esc).join('<br>')); return; }
+    $('cp-estado').hidden = true;
+    $('cp-inv').hidden = MODO !== 'inv';
+    $('cp-ped').hidden = MODO !== 'pedido';
+    $('cp-his').hidden = MODO !== 'historial';
+    if (MODO === 'pedido') pintarPedidoVista(); else if (MODO === 'historial') pintarHistorial(); else pintarInv();
+    pintarPasos();
+  }
+  function setModo(m) { MODO = (m === 'analisis') ? 'pedido' : m; MODO_FIJADO = true; marcarModo(); render(); window.scrollTo(0, 0); }
+
+  /* ---------- Planilla de inventario ---------- */
+  function unidadCompra(it) { return it.f > 1 ? (it.f >= 500 && it.u === 'ml' ? 'botellas' : 'paquetes') : (it.u || 'und'); }
+  function guardado(it) { return it.cv != null ? String(it.cv) : ''; }
+  function valorActual(it) { return Object.prototype.hasOwnProperty.call(ED, it.id) ? ED[it.id] : guardado(it); }
+  function igual(a, b) { a = String(a).trim(); b = String(b).trim(); if (a === '' || b === '') return a === b; return Number(a) === Number(b); }
+  function sucio(it) { return Object.prototype.hasOwnProperty.call(ED, it.id) && !igual(ED[it.id], guardado(it)); }
+  function malo(v) { v = String(v).trim(); return v !== '' && (isNaN(Number(v)) || Number(v) < 0); }
+  function listaInv() {
+    var b = norm(BUSCA_INV);
+    return D.items.filter(function (it) {
+      if (AREA && it.a !== AREA) return false;
+      return !b || norm(it.n + ' ' + it.p).indexOf(b) >= 0;
+    });
+  }
+
+  /* Grupo de cada insumo en la planilla: por categoría (con el área si se ven las dos) o por proveedor */
+  function claveInv(it) {
+    if (AGRUPAR === 'prov') return it.p;
+    return AREA ? it.k : it.a + ' · ' + it.k;
+  }
+  function ordenGrupos(g) {
+    var ord = (D && D.catOrden) || [];
+    var info = {};
+    Object.keys(g).forEach(function (k) { var it = g[k][0]; info[k] = { a: it.a === 'Cocina' ? 0 : 1, c: ord.indexOf(it.k) < 0 ? 999 : ord.indexOf(it.k) }; });
+    return Object.keys(g).sort(function (x, y) {
+      if (AGRUPAR === 'prov') return x.localeCompare(y, 'es');
+      return (info[x].a - info[y].a) || (info[x].c - info[y].c) || x.localeCompare(y, 'es');
+    });
+  }
+
+  function pintarInv() {
+    var P = params();
+    var lista = listaInv();
+    var g = {};
+    lista.forEach(function (it) { var k = claveInv(it); (g[k] = g[k] || []).push(it); });
+    var provs = ordenGrupos(g);
+    $('cp-inv-lista').innerHTML = provs.length ? provs.map(function (p) {
+      var filas = g[p].slice().sort(function (a, b) { return a.n.localeCompare(b.n, 'es'); }).map(function (it) {
+        var w = it.w.slice(-P.sem), sem = w.reduce(function (a, b) { return a + b; }, 0) / w.length;
+        var uc = unidadCompra(it);
+        var info = 'Cuenta en ' + esc(uc) + (it.f > 1 ? ' (' + und(it.f) + ' ' + esc(it.u) + ' c/u)' : '') + (sem > 0 ? ' · gasta ~' + und(sem / it.f) + ' ' + esc(uc) + '/sem' : '') + (it.cf ? ' · contado ' + esc(fechaHora(it.cf)) : '');
+        var v = valorActual(it);
+        var cls = 'cp-q' + (sucio(it) ? ' sucio' : '') + (malo(v) ? ' mal' : '');
+        return '<div class="cp-fila"><div class="nom">' + esc(it.n) + '<small>' + (AGRUPAR === 'cat' ? esc(it.p) : esc(it.k)) + ' · ' + info + '</small></div>' +
+          '<input class="' + cls + '" type="number" inputmode="decimal" min="0" step="any" placeholder="—" data-id="' + esc(it.id) + '" value="' + esc(v === 'x' ? '' : v) + '" aria-label="Cantidad contada de ' + esc(it.n) + '"></div>';
+      }).join('');
+      var abierto = BUSCA_INV || ABIERTOS[p] === true;
+      return '<details class="cp-det" data-p="' + esc(p) + '"' + (abierto ? ' open' : '') + '><summary><span>' + esc(p) + '<em class="cp-prog" data-prog="' + esc(p) + '"></em></span></summary>' + filas + '</details>';
+    }).join('') : '<div class="cp-vacio">No hay insumos con ese filtro.</div>';
+    provs.forEach(function (p) { progProv(p); });
+    resumenInv();
+    barraGuardar();
+    $('cp-inv-sub').textContent = D.fechas.conteo ? 'Último conteo guardado: ' + fechaHora(D.fechas.conteo) + '. Escribe la cantidad que hay hoy en cada insumo y toca Guardar.' : 'Escribe la cantidad que hay hoy en cada insumo y toca Guardar. Los que dejes vacíos no entran al pedido.';
+  }
+
+  function progProv(p) {
+    var el = document.querySelector('[data-prog="' + (window.CSS && CSS.escape ? CSS.escape(p) : p) + '"]');
+    if (!el) return;
+    var its = listaInv().filter(function (it) { return claveInv(it) === p; });
+    var c = its.filter(function (it) { return valorActual(it) !== '' && !malo(valorActual(it)); }).length;
+    el.textContent = c + '/' + its.length + ' contados';
+  }
+  function resumenInv() {
+    var h = ['Cocina', 'Barra'].map(function (a) {
+      var its = D.items.filter(function (it) { return it.a === a; });
+      var c = its.filter(function (it) { return valorActual(it) !== '' && !malo(valorActual(it)); }).length;
+      return '<span>' + a + ' <em>' + c + ' de ' + its.length + ' contados</em></span>';
+    });
+    $('cp-inv-res').innerHTML = h.join('');
+  }
+  function barraGuardar() {
+    var n = 0, m = 0;
+    D.items.forEach(function (it) { if (sucio(it)) { n++; if (malo(ED[it.id])) m++; } });
+    var t = $('cp-g-txt');
+    t.className = 'txt' + (m ? ' err' : '');
+    t.textContent = m ? 'Hay ' + m + ' valores que no son números. Corrígelos para guardar.' : (n ? n + (n === 1 ? ' cambio sin guardar' : ' cambios sin guardar') : 'Sin cambios por guardar');
+    $('cp-g-btn').disabled = !n || !!m;
+    $('cp-g-ver').hidden = !!n || !D.fechas.conteo;
+  }
+
+  function alEscribir(e) {
+    var inp = e.target;
+    if (!inp.classList || !inp.classList.contains('cp-q')) return;
+    var it = ITEM[inp.getAttribute('data-id')];
+    if (!it) return;
+    ED[it.id] = inp.validity && inp.validity.badInput ? 'x' : inp.value;
+    inp.classList.toggle('sucio', sucio(it));
+    inp.classList.toggle('mal', malo(ED[it.id]));
+    progProv(claveInv(it));
+    resumenInv();
+    barraGuardar();
+    pintarPasos();
+  }
+  function alTeclear(e) {
+    if (e.key !== 'Enter' || !e.target.classList || !e.target.classList.contains('cp-q')) return;
+    e.preventDefault();
+    var todos = Array.prototype.slice.call(document.querySelectorAll('#cp-inv-lista .cp-q'));
+    var i = todos.indexOf(e.target), sig = todos[i + 1];
+    if (!sig) { e.target.blur(); return; }
+    var det = sig.closest('details'); if (det && !det.open) det.open = true;
+    sig.focus(); if (sig.select) sig.select();
+  }
+
+  function mensaje(txt, clase) { var t = $('cp-g-txt'); t.className = 'txt ' + (clase || ''); t.textContent = txt; }
+
+  function guardarConteos() {
+    var cambios = [], malos = [];
+    D.items.forEach(function (it) {
+      if (!sucio(it)) return;
+      var v = String(ED[it.id]).trim();
+      if (malo(v)) { malos.push(it.n); return; }
+      cambios.push({ id: it.id, a: it.a, v: v });
+    });
+    if (malos.length) { mensaje('Revisa: ' + malos.slice(0, 3).join(', '), 'err'); return; }
+    if (!cambios.length) return;
+    var b = $('cp-g-btn'); b.disabled = true; b.textContent = 'Guardando…';
+    google.script.run
+      .withSuccessHandler(function (res) {
+        b.textContent = 'Guardar conteo';
+        var fecha = (res && res.fecha) || '';
+        cambios.forEach(function (c) {
+          var it = ITEM[c.id]; if (!it) return;
+          if (c.v === '') { it.cv = null; it.q = null; it.cf = ''; }
+          else { it.cv = Number(c.v); it.q = it.cv * it.f; it.cf = fecha; }
+          delete ED[c.id];
+        });
+        if (fecha && fecha > (D.fechas.conteo || '')) D.fechas.conteo = fecha;
+        reiniciarAjustes();
+        pintarInv();
+        mensaje('Guardado ✓ ' + cambios.length + (cambios.length === 1 ? ' insumo' : ' insumos') + ' · ' + fechaHora(fecha), 'ok');
+        $('cp-g-ver').hidden = false;
+        pintarPasos();
+        fijarPeriodo();
+      })
+      .withFailureHandler(function (e) {
+        b.textContent = 'Guardar conteo'; b.disabled = false;
+        mensaje('No se pudo guardar: ' + ((e && e.message) || 'intenta de nuevo') + '. Tus números siguen aquí.', 'err');
+      })
+      .guardarConteo(cambios);
+  }
+
+  /* ---------- Eventos ---------- */
+  document.querySelectorAll('#cp-areas button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      AREA = b.getAttribute('data-a');
+      document.querySelectorAll('#cp-areas button').forEach(function (x) { x.classList.toggle('activo', x === b); });
+      LIMITE = 40; render();
+    });
+  });
+  ['cp-src', 'cp-sem', 'cp-ent', 'cp-seg', 'cp-cob'].forEach(function (id) { $(id).addEventListener('change', function () { LIMITE = 40; reiniciarAjustes(); render(); }); });
+  $('cp-busca').addEventListener('input', function () { BUSCA = this.value; LIMITE = 40; if (D && !D.vacio) pintarTabla(); });
+  $('cp-mas').addEventListener('click', function () { LIMITE += 40; pintarTabla(); });
+
+
+  document.querySelectorAll('#cp-modo button').forEach(function (b) { b.addEventListener('click', function () { setModo(b.getAttribute('data-m')); }); });
+  document.querySelectorAll('#cp-agr button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      AGRUPAR = b.getAttribute('data-g');
+      document.querySelectorAll('#cp-agr button').forEach(function (x) { x.classList.toggle('activo', x === b); });
+      pintarInv();
+    });
+  });
+  $('cp-inv-lista').addEventListener('input', alEscribir);
+  $('cp-inv-lista').addEventListener('keydown', alTeclear);
+  $('cp-inv-lista').addEventListener('toggle', function (e) { var d = e.target; if (d && d.getAttribute && d.getAttribute('data-p') !== null) ABIERTOS[d.getAttribute('data-p')] = d.open; }, true);
+  $('cp-inv-busca').addEventListener('input', function () { BUSCA_INV = this.value; if (D && !D.vacio) pintarInv(); });
+  $('cp-ceros').addEventListener('click', function () {
+    var lista = listaInv().filter(function (it) { return valorActual(it) === ''; });
+    if (!lista.length) return;
+    if (!window.confirm('¿Poner 0 en los ' + lista.length + ' insumos sin contar de esta lista?')) return;
+    lista.forEach(function (it) { ED[it.id] = '0'; });
+    pintarInv();
+  });
+  $('cp-g-btn').addEventListener('click', guardarConteos);
+  $('cp-g-ver').addEventListener('click', function () { setModo('pedido'); });
+
+  $('cp-ped-lista').addEventListener('click', alClicPedido);
+  $('cp-ped-lista').addEventListener('change', alCambiarPedido);
+  $('cp-ped-lista').addEventListener('input', function (e) { if (e.target.classList && e.target.classList.contains('cp-pq')) alCambiarPedido(e); });
+  vista.addEventListener('click', function (e) { var ir = e.target.closest('[data-ir]'); if (ir && vista.contains(ir)) setModo(ir.getAttribute('data-ir')); });
+  $('cp-an-det').addEventListener('toggle', function () { if (this.open) pintarAnalisis(); });
+  $('cp-ped-busca').addEventListener('input', function () { BUSCA_PED = this.value; if (D && !D.vacio) pintarPedidoVista(); });
+  $('cp-copiar-todo').addEventListener('click', function () {
+    var gs = gruposPedido().filter(function (g) { return lineasOn(g).length; });
+    if (!gs.length) return;
+    var b = this, ant = b.textContent;
+    copiarTexto(gs.map(textoProveedor).join('\n\n──────────\n\n'), null);
+    b.textContent = 'Copiado ✓'; setTimeout(function () { b.textContent = ant; }, 2000);
+  });
+  $('cp-guardar-todos').addEventListener('click', function () {
+    var gs = gruposPedido().filter(function (g) { return lineasOn(g).length; });
+    if (!gs.length) return;
+    if (gs.length > 1 && !window.confirm('¿Guardar el pedido de los ' + gs.length + ' proveedores? Los que ya guardaste hoy se reemplazan.')) return;
+    guardarGrupos(gs, estadoActual, this);
+  });
+  $('cp-his-lista').addEventListener('click', alClicHistorial);
+  $('cp-his-busca').addEventListener('input', function () { BUSCA_H = this.value; if (H) pintarHistorial(); });
+})();
+</script>

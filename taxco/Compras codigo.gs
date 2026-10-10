@@ -1,6 +1,8 @@
 /**
- * COMPRAS DINÁMICAS TAXCO — v1.4.1
+ * COMPRAS DINÁMICAS TAXCO — v1.4.2
  * ================================
+ * v1.4.2: botón "Iniciar inventario desde cero" (reiniciarInventario): borra los conteos de
+ *         INVENTARIO y deja intacta la pestaña PEDIDOS (el histórico de compras).
  * v1.4.1: si un ID está repetido en COMPRAS_PARAM (ej. 63007 Gordon's 700 ml y 1,5 L),
  *         el pedido guardado usa la fila ACTIVA, no la última.
  * Cruza las VENTAS por producto (pestaña PRODUCTOS) con las RECETAS del MIG para saber
@@ -341,6 +343,23 @@ function guardarConteo(cambios) {
     const filas = cpAplicarConteo(previas, lista, fecha);
     cEscribir(h, ENC_INV.length, filas, [1, 4]);
     return { ok: true, n: lista.length, fecha: fecha, total: filas.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Borra todos los conteos guardados (pestaña INVENTARIO) para empezar un inventario desde cero.
+ * No toca la pestaña PEDIDOS: el histórico de compras se conserva.
+ */
+function reiniciarInventario() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) throw new Error('El sistema está ocupado. Intenta de nuevo en unos segundos.');
+  try {
+    const h = SpreadsheetApp.openById(SHEET_ID).getSheetByName(H_INV);
+    const n = (h && h.getLastRow() > 1) ? h.getLastRow() - 1 : 0;
+    if (n) h.getRange(2, 1, n, ENC_INV.length).clearContent();
+    return { ok: true, borrados: n };
   } finally {
     lock.releaseLock();
   }

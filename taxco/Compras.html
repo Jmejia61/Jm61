@@ -1,5 +1,5 @@
-<!-- ============================================================
-  COMPRAS DINÁMICAS TAXCO — pestaña del dashboard (v1.5: proceso en 3 pasos)
+ <!-- ============================================================
+  COMPRAS DINÁMICAS TAXCO — pestaña del dashboard (v1.5.1: proceso en 3 pasos + inventario desde cero)
   1. Inventario  →  2. Sugerido de compras  →  3. Histórico de compras
   (El análisis de mínimos y máximos quedó dentro del paso 2, en "Ver análisis detallado".)
   Archivo HTML nuevo llamado exactamente "Compras" dentro del proyecto.
@@ -158,6 +158,8 @@
   #vista-compras .cp-pasos button.hecho .n { background: #E3F4EC; color: #1F7A52; }
   #vista-compras .cp-pasos button.activo { border-color: var(--naranja, #E8672A); background: var(--naranja-suave, #FFF3EB); }
   #vista-compras .cp-pasos button.activo .n { background: var(--naranja, #E8672A); color: #fff; }
+  #vista-compras #cp-inv .cp-tools { flex-wrap: wrap; }
+  #vista-compras .cp-btn.peligro { color: #B03030; border-color: #F0C9C9; }
   #vista-compras .cp-aviso.ok { background: #E3F4EC; border-color: #BFE3CF; }
   #vista-compras .cp-nav { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 16px 0 4px; }
   #vista-compras details.cp-andet { margin-top: 18px; }
@@ -206,6 +208,7 @@
       <div class="cp-tools">
         <input id="cp-inv-busca" type="search" placeholder="Buscar insumo o proveedor…" aria-label="Buscar insumo o proveedor">
         <button type="button" class="cp-btn" id="cp-ceros">Poner 0 a los vacíos</button>
+        <button type="button" class="cp-btn peligro" id="cp-reiniciar">Iniciar inventario desde cero</button>
       </div>
       <div id="cp-inv-lista"></div>
     </div>
@@ -1021,6 +1024,32 @@
       .guardarConteo(cambios);
   }
 
+  /* Inventario desde cero: borra todos los conteos guardados; el histórico de compras no se toca */
+  function reiniciarInventario() {
+    var nGuard = D.items.filter(function (it) { return it.cv != null; }).length, nEd = cambiosConteo();
+    if (!nGuard && !nEd) { mensaje('No hay conteos guardados: el inventario ya está en cero.', 'ok'); return; }
+    var txt = 'Se borrará' + (nGuard === 1 ? ' el conteo guardado' : 'n los ' + nGuard + ' conteos guardados') + ' (Cocina y Barra)' +
+      (nEd ? (nEd === 1 ? ' y el cambio sin guardar' : ' y los ' + nEd + ' cambios sin guardar') : '') +
+      '.\n\nEl histórico de compras NO se borra.\n\n¿Iniciar el inventario desde cero?';
+    if (!window.confirm(txt)) return;
+    var b = $('cp-reiniciar'), ant = b.textContent;
+    b.disabled = true; b.textContent = 'Reiniciando…';
+    google.script.run
+      .withSuccessHandler(function () {
+        b.disabled = false; b.textContent = ant;
+        D.items.forEach(function (it) { it.cv = null; it.q = null; it.cf = ''; });
+        ED = {}; D.fechas.conteo = '';
+        reiniciarAjustes();
+        pintarInv(); pintarPasos(); fijarPeriodo();
+        mensaje('Inventario en cero ✓ Ya puedes empezar a contar. El histórico de compras sigue intacto.', 'ok');
+      })
+      .withFailureHandler(function (e) {
+        b.disabled = false; b.textContent = ant;
+        mensaje('No se pudo reiniciar: ' + ((e && e.message) || 'intenta de nuevo') + '. Tus conteos siguen como estaban.', 'err');
+      })
+      .reiniciarInventario();
+  }
+
   /* ---------- Eventos ---------- */
   document.querySelectorAll('#cp-areas button').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -1054,6 +1083,7 @@
     pintarInv();
   });
   $('cp-g-btn').addEventListener('click', guardarConteos);
+  $('cp-reiniciar').addEventListener('click', reiniciarInventario);
   $('cp-g-ver').addEventListener('click', function () { setModo('pedido'); });
 
   $('cp-ped-lista').addEventListener('click', alClicPedido);

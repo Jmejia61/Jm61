@@ -1,5 +1,5 @@
  <!-- ============================================================
-  COMPRAS DINÁMICAS TAXCO — pestaña del dashboard (v1.6: proceso en 3 pasos + inventario desde cero + máximo fijo)
+  COMPRAS DINÁMICAS TAXCO — pestaña del dashboard (v1.7: proceso en 3 pasos + inventario desde cero + máximo fijo + rotación real)
   1. Inventario  →  2. Sugerido de compras  →  3. Histórico de compras
   (El análisis de mínimos y máximos quedó dentro del paso 2, en "Ver análisis detallado".)
   Archivo HTML nuevo llamado exactamente "Compras" dentro del proyecto.
@@ -231,6 +231,9 @@
         <label>Stock que se usa
           <select id="cp-src"><option value="conteo" selected>Mi conteo</option><option value="mig">Saldo del MIG</option></select>
         </label>
+        <label>Rotación (semanas con venta)
+          <select id="cp-rot"><option value="1">Todos los vendidos</option><option value="2" selected>2 de las últimas 4</option><option value="3">3 de las últimas 4</option><option value="4">Las 4 semanas</option></select>
+        </label>
         <label>Semanas para promediar
           <select id="cp-sem"><option value="2">2 semanas</option><option value="4" selected>4 semanas</option><option value="8">8 semanas</option></select>
         </label>
@@ -244,7 +247,7 @@
           <input id="cp-cob" type="number" inputmode="decimal" min="1" max="60" step="1" value="7">
         </label>
       </div>
-      <p class="cp-ayuda">Mínimo = consumo diario × (entrega + seguridad). Máximo = consumo diario × (entrega + días a cubrir). Si el stock está en el mínimo o por debajo, se pide hasta el máximo. Los insumos con <b>MAX_FIJO</b> en COMPRAS_PARAM no usan este cálculo: se piden hasta ese máximo cuando el conteo llega a MIN_FIJO (o a la mitad del máximo).</p>
+      <p class="cp-ayuda">Mínimo = consumo diario × (entrega + seguridad). Máximo = consumo diario × (entrega + días a cubrir). Si el stock está en el mínimo o por debajo, se pide hasta el máximo. Los insumos con <b>MAX_FIJO</b> en COMPRAS_PARAM no usan este cálculo: se piden hasta ese máximo cuando el conteo llega a MIN_FIJO (o a la mitad del máximo). <b>Rotación:</b> los platos y tragos que se vendieron en menos semanas de las indicadas no suman consumo; los insumos que solo ellos usan salen como «Sin rotación» y no se piden.</p>
     </details>
     <div class="cp-ped-tools">
       <input id="cp-ped-busca" type="search" placeholder="Buscar proveedor o insumo…" aria-label="Buscar proveedor o insumo">
@@ -347,17 +350,19 @@
 
   /* ---------- Cálculo (en el navegador, para que responda al instante) ---------- */
   function params() {
-    return { src: $('cp-src').value, sem: +$('cp-sem').value, ent: num('cp-ent', 2, 0, 30), seg: num('cp-seg', 1, 0, 30), cob: num('cp-cob', 7, 1, 60) };
+    return { src: $('cp-src').value, sem: +$('cp-sem').value, rot: +$('cp-rot').value || 1, ent: num('cp-ent', 2, 0, 30), seg: num('cp-seg', 1, 0, 30), cob: num('cp-cob', 7, 1, 60) };
   }
   function calcular(it, P) {
-    var w = it.w.slice(-P.sem);
+    // Rotación real: solo cuenta el consumo de productos vendidos en al menos P.rot de las últimas 4 semanas
+    var w = ((P.rot > 1 && it.wr && it.wr[P.rot]) ? it.wr[P.rot] : it.w).slice(-P.sem);
     var d = w.reduce(function (a, b) { return a + b; }, 0) / w.length / 7;
     if (it.mf > 0) return calcularFijo(it, d, P);
+    var sinRot = d <= 0 && it.w.slice(-P.sem).some(function (x) { return x > 0; });
     var de = it.de != null ? it.de : P.ent, dc = it.dc != null ? it.dc : P.cob;
     var mn = d * (de + P.seg), mx = d * (de + dc);
     var s = (P.src === 'mig') ? it.s : it.q, sE = s == null ? 0 : Math.max(0, s);
     var est = 'ok';
-    if (d <= 0) est = 'sin';
+    if (d <= 0) est = sinRot ? 'sinrot' : 'sin';
     else if (s == null) est = 'nosaldo';
     else if (sE <= mn) est = (sE / d < de) ? 'crit' : 'pedir';
     var packs = 0;
@@ -381,7 +386,8 @@
              costo: packs * it.f * it.c, alc: (d > 0 && s != null) ? sE / d : null, ant: ant, fijo: true };
   }
   var ETQ = { ok: ['OK', 'cp-ok'], pedir: ['Pedir', 'cp-pe'], crit: ['Urgente', 'cp-cr'], sin: ['Sin consumo', 'cp-gr'], nosaldo: ['Sin saldo en MIG', 'cp-gr'] };
-  var ORDEN_EST = { crit: 0, pedir: 1, ok: 2, nosaldo: 3, sin: 4 };
+  ETQ.sinrot = ['Sin rotación', 'cp-gr'];
+  var ORDEN_EST = { crit: 0, pedir: 1, ok: 2, nosaldo: 3, sinrot: 4, sin: 5 };
 
   /* ---------- Montaje en la página ---------- */
   var main = document.querySelector('main.contenido') || document.querySelector('main') || document.body;
@@ -467,7 +473,8 @@
   }
   function textoPromedio(P) {
     var s0 = D.semanas[D.semanas.length - P.sem];
-    return 'Consumo promedio de las últimas ' + P.sem + ' semanas completas (lunes a domingo), desde el ' + fechaTxt(s0.i) + ' hasta el ' + fechaTxt(D.fechas.semanaFin) + '. ';
+    var r = D.rotacion, rot = (P.rot > 1 && r) ? ' Solo cuentan los ' + r[P.rot] + ' productos (de ' + r[1] + ') vendidos en ' + (P.rot === 4 ? 'las 4' : 'al menos ' + P.rot + ' de las') + ' últimas 4 semanas.' : '';
+    return 'Consumo promedio de las últimas ' + P.sem + ' semanas completas (lunes a domingo), desde el ' + fechaTxt(s0.i) + ' hasta el ' + fechaTxt(D.fechas.semanaFin) + '.' + rot + ' ';
   }
 
   /* ---------- Análisis (lo que antes estaba mezclado con el pedido) ---------- */
@@ -606,7 +613,9 @@
     $('cp-ped-lista').innerHTML = grupos.length ? grupos.map(cardHtml).join('') :
       '<div class="cp-vacio" style="grid-column:1/-1">' + (D.fechas.conteo || P.src === 'mig' ? 'Nada por pedir con estos parámetros.' : 'Cuenta tu inventario para ver el pedido.') + '</div>';
     $('cp-guardar-todos').disabled = !grupos.length;
-    $('cp-ped-nota').textContent = 'Puedes cambiar cantidades con − y +, o quitar un insumo con la casilla. Guardar un pedido lo deja en el Histórico de compras; si lo guardas otra vez el mismo día, reemplaza el anterior.';
+    var nRot = base.filter(function (r) { return r.est === 'sinrot'; }).length;
+    $('cp-ped-nota').textContent = (nRot ? nRot + (nRot === 1 ? ' insumo no se pide' : ' insumos no se piden') + ' porque sus productos no tienen rotación real (puedes cambiarlo en «Ajustar cómo se calcula el pedido»). ' : '') +
+      'Puedes cambiar cantidades con − y +, o quitar un insumo con la casilla. Guardar un pedido lo deja en el Histórico de compras; si lo guardas otra vez el mismo día, reemplaza el anterior.';
     if ($('cp-an-det').open) pintarAnalisis();
   }
 
@@ -1072,7 +1081,7 @@
       LIMITE = 40; render();
     });
   });
-  ['cp-src', 'cp-sem', 'cp-ent', 'cp-seg', 'cp-cob'].forEach(function (id) { $(id).addEventListener('change', function () { LIMITE = 40; reiniciarAjustes(); render(); }); });
+  ['cp-src', 'cp-rot', 'cp-sem', 'cp-ent', 'cp-seg', 'cp-cob'].forEach(function (id) { $(id).addEventListener('change', function () { LIMITE = 40; reiniciarAjustes(); render(); }); });
   $('cp-busca').addEventListener('input', function () { BUSCA = this.value; LIMITE = 40; if (D && !D.vacio) pintarTabla(); });
   $('cp-mas').addEventListener('click', function () { LIMITE += 40; pintarTabla(); });
 

@@ -1,6 +1,9 @@
 /**
- * COMPRAS DINÁMICAS TAXCO — v1.5
+ * COMPRAS DINÁMICAS TAXCO — v1.6
  * ================================
+ * v1.6: ROTACIÓN REAL. Además del consumo con todos los productos vendidos, se manda el consumo
+ *       contando solo los productos vendidos en 2, 3 o las 4 de las últimas 4 semanas completas.
+ *       La pantalla elige cuál usar (por defecto: 2 de 4), así no se pide para productos que casi no rotan.
  * v1.5: MÁXIMO FIJO. Columnas L (MAX_FIJO) y M (MIN_FIJO) de COMPRAS_PARAM, en unidades de compra.
  *       Si un insumo tiene MAX_FIJO, el sugerido no usa las recetas: cuando el conteo llega al
  *       mínimo (MIN_FIJO, o la mitad del máximo si está vacío) pide hasta el máximo. Sirve para
@@ -175,6 +178,18 @@ function cpUnidadNombre(n) {
   return '';
 }
 
+/** Consumo semanal contando solo productos con rotación real. Se omite si es igual al consumo total. */
+function cpConsumoRot(total, consumoRot, id) {
+  const out = {};
+  let hay = false;
+  [2, 3, 4].forEach(function (n) {
+    const c = consumoRot[n][id] || new Array(COMPRAS_SEMANAS).fill(0);
+    const igual = total && c.every(function (x, k) { return Math.abs(x - total[k]) < 1e-9; });
+    if (!igual && total) { out[n] = c.map(function (x) { return Math.round(x * 100) / 100; }); hay = true; }
+  });
+  return hay ? out : null;
+}
+
 /** Crea una sola vez los encabezados MAX_FIJO y MIN_FIJO (columnas L y M) en COMPRAS_PARAM. */
 function cpColumnasFijas(ss) {
   const h = ss.getSheetByName(H_COMPRAS);
@@ -245,6 +260,8 @@ function cpCalcular(base, filasParam, ventas, conteos) {
     return out;
   }
   const consumo = {};            // idInsumoBase -> [consumo por semana en unidad base]
+  const consumoRot = { 2: {}, 3: {}, 4: {} };   // lo mismo, contando solo productos con rotación real
+  const rotacion = { 1: 0, 2: 0, 3: 0, 4: 0 };  // productos con receta vendidos en al menos N de las últimas 4 semanas
   let uTot = 0, uCon = 0;
   const sinReceta = [];
   Object.keys(vendidos).forEach(function (pid) {
@@ -254,9 +271,17 @@ function cpCalcular(base, filasParam, ventas, conteos) {
     if (!recetas[pid]) { if (u4 > 0) sinReceta.push({ n: nombres[pid][0], u: u4, t: nombres[pid][1] }); return; }
     uCon += u4;
     const plano = aplanar(pid, []);
+    const semVenta = v.slice(-4).filter(function (x) { return x > 0; }).length;
+    for (let n = 1; n <= 4; n++) if (semVenta >= n) rotacion[n]++;
     Object.keys(plano).forEach(function (b) {
       if (!consumo[b]) consumo[b] = new Array(COMPRAS_SEMANAS).fill(0);
       for (let k = 0; k < COMPRAS_SEMANAS; k++) consumo[b][k] += plano[b] * v[k];
+      [2, 3, 4].forEach(function (n) {
+        if (semVenta < n) return;
+        const c = consumoRot[n];
+        if (!c[b]) c[b] = new Array(COMPRAS_SEMANAS).fill(0);
+        for (let k = 0; k < COMPRAS_SEMANAS; k++) c[b][k] += plano[b] * v[k];
+      });
     });
   });
   sinReceta.sort(function (a, b) { return b.t - a.t; });
@@ -294,6 +319,7 @@ function cpCalcular(base, filasParam, ventas, conteos) {
       c: costoDe(id),
       s: ins ? ins.saldo : null,
       w: (consumo[id] || new Array(COMPRAS_SEMANAS).fill(0)).map(function (x) { return Math.round(x * 100) / 100; }),
+      wr: cpConsumoRot(consumo[id], consumoRot, id),   // { 2: [...], 3: [...], 4: [...] } solo si cambia algo
       de: r[5] === '' ? null : cNum(r[5]),
       dc: r[6] === '' ? null : cNum(r[6]),
       mx: cNum(r[7]) * factor,
@@ -327,7 +353,8 @@ function cpCalcular(base, filasParam, ventas, conteos) {
     catOrden: COMPRAS_CAT_ORDEN,
     sinParam: sinParam.slice(0, 60),
     nSinParam: sinParam.length,
-    cobertura: { pct: uTot > 0 ? uCon / uTot : 0, sinReceta: sinReceta.slice(0, 8), nSinReceta: sinReceta.length }
+    cobertura: { pct: uTot > 0 ? uCon / uTot : 0, sinReceta: sinReceta.slice(0, 8), nSinReceta: sinReceta.length },
+    rotacion: rotacion
   };
 }
 

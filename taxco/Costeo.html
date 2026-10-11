@@ -7,6 +7,9 @@
 <style>
   #vista-costeo .cx-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
   #vista-costeo .cx-barra .filtros { margin: 0; }
+  #vista-costeo .cx-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+  #vista-costeo .cx-btn.fuerte { background: var(--naranja, #6E682C); border-color: var(--naranja, #6E682C); color: #fff; }
+  #vista-costeo .cx-btn[disabled] { opacity: .5; cursor: default; }
   #vista-costeo .cx-btn { font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; padding: 8px 14px; border-radius: 10px;
     border: 1px solid var(--line, #E6DEC6); background: var(--panel, #fff); color: var(--ink, #2E2B1C); }
   #vista-costeo .cx-btn:disabled { opacity: .55; cursor: default; }
@@ -204,7 +207,11 @@
       <button type="button" data-a="Postres">Postres</button>
       <button type="button" data-a="Otros">Otros</button>
     </div>
-    <button type="button" class="cx-btn" id="cx-actualizar">Actualizar desde Drive</button>
+    <span class="cx-acciones">
+      <button type="button" class="cx-btn fuerte" id="cx-subir">Subir Saldos de bodega</button>
+      <button type="button" class="cx-btn" id="cx-actualizar">Actualizar desde Drive</button>
+      <input type="file" id="cx-archivo" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+    </span>
   </div>
 
   <div class="cx-aviso" id="cx-aviso" hidden></div>
@@ -386,6 +393,33 @@
         av.textContent = 'No se pudo actualizar: ' + (e && e.message);
       })
       .cargarCosteoDrive();
+  };
+
+  /* Subir el reporte Saldos de bodega desde la página: actualiza los costos al día de hoy */
+  $('cx-subir').onclick = function () { $('cx-archivo').value = ''; $('cx-archivo').click(); };
+  $('cx-archivo').onchange = function () {
+    var f = this.files && this.files[0], av = $('cx-aviso'), b = $('cx-subir'), b2 = $('cx-actualizar');
+    if (!f) return;
+    av.hidden = false;
+    if (!/\.xlsx?$/i.test(f.name)) { av.textContent = 'Ese archivo no es Excel. Sube el reporte Saldos de bodega del MIG (.xls o .xlsx).'; return; }
+    if (f.size > 20 * 1024 * 1024) { av.textContent = 'El archivo pesa más de 20 MB. Revisa que sea el reporte Saldos de bodega.'; return; }
+    b.disabled = b2.disabled = true; b.textContent = 'Subiendo…';
+    av.textContent = 'Subiendo «' + f.name + '» y actualizando los costos al día de hoy…';
+    var fin = function () { b.disabled = b2.disabled = false; b.textContent = 'Subir Saldos de bodega'; };
+    var lector = new FileReader();
+    lector.onerror = function () { fin(); av.textContent = 'No se pudo leer el archivo en este dispositivo. Intenta de nuevo.'; };
+    lector.onload = function () {
+      var b64 = String(lector.result).replace(/^data:[^,]*,/, '');
+      google.script.run
+        .withSuccessHandler(function (r) {
+          fin();
+          av.innerHTML = (r.subido ? '<b>Costos actualizados ✓</b><br>' : '') + (r.mensajes || []).map(esc).join('<br>');
+          cargar();
+        })
+        .withFailureHandler(function (e) { fin(); av.textContent = 'No se pudo subir: ' + ((e && e.message) || 'intenta de nuevo'); })
+        .subirSaldosBodega(f.name, b64);
+    };
+    lector.readAsDataURL(f);
   };
 
   /* ---------- Filtros ---------- */

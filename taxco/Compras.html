@@ -1,5 +1,5 @@
  <!-- ============================================================
-  COMPRAS DINÁMICAS TAXCO — pestaña del dashboard (v1.5.1: proceso en 3 pasos + inventario desde cero)
+  COMPRAS DINÁMICAS TAXCO — pestaña del dashboard (v1.6: proceso en 3 pasos + inventario desde cero + máximo fijo)
   1. Inventario  →  2. Sugerido de compras  →  3. Histórico de compras
   (El análisis de mínimos y máximos quedó dentro del paso 2, en "Ver análisis detallado".)
   Archivo HTML nuevo llamado exactamente "Compras" dentro del proyecto.
@@ -244,7 +244,7 @@
           <input id="cp-cob" type="number" inputmode="decimal" min="1" max="60" step="1" value="7">
         </label>
       </div>
-      <p class="cp-ayuda">Mínimo = consumo diario × (entrega + seguridad). Máximo = consumo diario × (entrega + días a cubrir). Si el stock está en el mínimo o por debajo, se pide hasta el máximo.</p>
+      <p class="cp-ayuda">Mínimo = consumo diario × (entrega + seguridad). Máximo = consumo diario × (entrega + días a cubrir). Si el stock está en el mínimo o por debajo, se pide hasta el máximo. Los insumos con <b>MAX_FIJO</b> en COMPRAS_PARAM no usan este cálculo: se piden hasta ese máximo cuando el conteo llega a MIN_FIJO (o a la mitad del máximo).</p>
     </details>
     <div class="cp-ped-tools">
       <input id="cp-ped-busca" type="search" placeholder="Buscar proveedor o insumo…" aria-label="Buscar proveedor o insumo">
@@ -352,6 +352,7 @@
   function calcular(it, P) {
     var w = it.w.slice(-P.sem);
     var d = w.reduce(function (a, b) { return a + b; }, 0) / w.length / 7;
+    if (it.mf > 0) return calcularFijo(it, d, P);
     var de = it.de != null ? it.de : P.ent, dc = it.dc != null ? it.dc : P.cob;
     var mn = d * (de + P.seg), mx = d * (de + dc);
     var s = (P.src === 'mig') ? it.s : it.q, sE = s == null ? 0 : Math.max(0, s);
@@ -366,6 +367,18 @@
     if (it.mx > 0 && s != null && sE <= it.mx) ant = Math.ceil((it.mx - sE) / it.f - 1e-9) * it.f * it.c;
     return { it: it, d: d, sem: d * 7, mn: mn, mx: mx, sE: sE, neg: s != null && s < 0, est: est, packs: packs, ped: packs * it.f,
              costo: packs * it.f * it.c, alc: (d > 0 && s != null) ? sE / d : null, ant: ant };
+  }
+  /* Máximo fijo (columnas MAX_FIJO / MIN_FIJO): no depende de las recetas */
+  function calcularFijo(it, d, P) {
+    var s = (P.src === 'mig') ? it.s : it.q, sE = s == null ? 0 : Math.max(0, s);
+    var mx = it.mf, mn = it.nf > 0 ? Math.min(it.nf, it.mf) : it.mf / 2;
+    var est = s == null ? 'nosaldo' : (sE <= 0 ? 'crit' : (sE <= mn ? 'pedir' : 'ok'));
+    var packs = (est === 'pedir' || est === 'crit') ? Math.max(0, Math.ceil((mx - sE) / it.f - 1e-9)) : 0;
+    if ((est === 'pedir' || est === 'crit') && packs === 0) est = 'ok';
+    var ant = 0;
+    if (it.mx > 0 && s != null && sE <= it.mx) ant = Math.ceil((it.mx - sE) / it.f - 1e-9) * it.f * it.c;
+    return { it: it, d: d, sem: d * 7, mn: mn, mx: mx, sE: sE, neg: s != null && s < 0, est: est, packs: packs, ped: packs * it.f,
+             costo: packs * it.f * it.c, alc: (d > 0 && s != null) ? sE / d : null, ant: ant, fijo: true };
   }
   var ETQ = { ok: ['OK', 'cp-ok'], pedir: ['Pedir', 'cp-pe'], crit: ['Urgente', 'cp-cr'], sin: ['Sin consumo', 'cp-gr'], nosaldo: ['Sin saldo en MIG', 'cp-gr'] };
   var ORDEN_EST = { crit: 0, pedir: 1, ok: 2, nosaldo: 3, sin: 4 };
@@ -530,6 +543,7 @@
     var d = detalleCant(it, c); if (d) p.push(d);
     p.push(precioUnidad(it));
     if (r.alc != null) p.push('hoy alcanza ' + und(r.alc) + ' d');
+    if (r.fijo) { var nmx = r.it.mf / r.it.f; p.push('máx. fijo ' + und(nmx) + ' ' + unidadPedido(r.it, nmx)); }
     return p.join(' · ');
   }
   function gruposPedido() {
@@ -642,7 +656,7 @@
     var it = r.it, c = cant(r), off = !!EXC[it.id];
     return '<li class="cp-l' + (off ? ' off' : '') + '" data-id="' + esc(it.id) + '">' +
       '<input type="checkbox" class="cp-inc"' + (off ? '' : ' checked') + ' aria-label="Incluir ' + esc(limpiar(it.n)) + '">' +
-      '<div class="nom">' + esc(limpiar(it.n)) + (r.est === 'crit' ? '<span class="cp-chip cp-cr">Urgente</span>' : '') + '</div>' +
+      '<div class="nom">' + esc(limpiar(it.n)) + (r.est === 'crit' ? '<span class="cp-chip cp-cr">Urgente</span>' : '') + (r.fijo ? '<span class="cp-chip cp-gr">Máx. fijo</span>' : '') + '</div>' +
       '<div class="val' + (it.c > 0 ? '' : ' sc') + '">' + esc(valorTxt(r)) + '</div>' +
       '<div class="sub">' + esc(subLinea(r)) + '</div>' +
       '<div class="cp-qty"><button type="button" class="cp-baja" aria-label="Menos">−</button>' +
@@ -852,7 +866,7 @@
         '<td class="num">' + (r.alc == null ? '—' : und(r.alc) + ' d') + '</td>' +
         '<td class="num">' + und(r.sem) + '</td><td class="num">' + und(r.mn) + '</td><td class="num">' + und(r.mx) + '</td>' +
         '<td class="num">' + (r.it.mx > 0 ? und(r.it.mx) : '—') + '</td>' +
-        '<td><span class="cp-chip ' + et[1] + '">' + et[0] + '</span></td></tr>';
+        '<td><span class="cp-chip ' + et[1] + '">' + et[0] + '</span>' + (r.fijo ? ' <span class="cp-chip cp-gr">Máx. fijo</span>' : '') + '</td></tr>';
     }).join('') : '<tr><td colspan="8" class="cp-vacio">No hay insumos con ese filtro.</td></tr>';
     $('cp-mas').hidden = lista.length <= LIMITE;
     $('cp-mas').textContent = 'Ver más (' + (lista.length - LIMITE) + ')';

@@ -1,6 +1,11 @@
 /**
- * COMPRAS DINÁMICAS TAXCO — v1.4.2
+ * COMPRAS DINÁMICAS TAXCO — v1.5
  * ================================
+ * v1.5: MÁXIMO FIJO. Columnas L (MAX_FIJO) y M (MIN_FIJO) de COMPRAS_PARAM, en unidades de compra.
+ *       Si un insumo tiene MAX_FIJO, el sugerido no usa las recetas: cuando el conteo llega al
+ *       mínimo (MIN_FIJO, o la mitad del máximo si está vacío) pide hasta el máximo. Sirve para
+ *       lo que se compra pero ninguna receta usa (agua, aceite de freidora, vinos por botella…).
+ *       Los encabezados L y M se crean solos la primera vez que se abre Compras.
  * v1.4.2: botón "Iniciar inventario desde cero" (reiniciarInventario): borra los conteos de
  *         INVENTARIO y deja intacta la pestaña PEDIDOS (el histórico de compras).
  * v1.4.1: si un ID está repetido en COMPRAS_PARAM (ej. 63007 Gordon's 700 ml y 1,5 L),
@@ -51,7 +56,7 @@
  */
 
 const H_COMPRAS = 'COMPRAS_PARAM';
-const ENC_COMPRAS = ['ID_INSUMO', 'INSUMO', 'AREA', 'PROVEEDOR', 'FACTOR', 'DIAS_ENTREGA', 'DIAS_COBERTURA', 'MAX_ACTUAL', 'ACTIVO', 'NOTA', 'CATEGORIA'];
+const ENC_COMPRAS = ['ID_INSUMO', 'INSUMO', 'AREA', 'PROVEEDOR', 'FACTOR', 'DIAS_ENTREGA', 'DIAS_COBERTURA', 'MAX_ACTUAL', 'ACTIVO', 'NOTA', 'CATEGORIA', 'MAX_FIJO', 'MIN_FIJO'];
 const H_PED = 'PEDIDOS';
 const ENC_PED = ['ID_PEDIDO', 'FECHA', 'SEMANA', 'PROVEEDOR', 'AREA', 'ID_INSUMO', 'INSUMO', 'CANTIDAD', 'UNIDAD', 'FACTOR', 'UNIDAD_BASE', 'COSTO_UNIT', 'VALOR', 'ESTADO'];
 const H_INV = 'INVENTARIO';
@@ -103,7 +108,7 @@ function configurarCompras() {
   if (h.getLastRow() < 2) {
     const cats = comprasCategorias();
     const filas = comprasSemilla().map(function (s) {
-      return [s[0], s[1], s[2], s[3], s[4], '', '', s[5], s[6], s[7], cats[s[0]] || ''];
+      return [s[0], s[1], s[2], s[3], s[4], '', '', s[5], s[6], s[7], cats[s[0]] || '', '', ''];
     });
     h.getRange(2, 1, filas.length, 1).setNumberFormat('@');
     h.getRange(2, 1, filas.length, ENC_COMPRAS.length).setValues(filas);
@@ -152,6 +157,7 @@ function getCompras() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const filasParam = cLeerHoja(ss, H_COMPRAS, ENC_COMPRAS.length);
   if (!filasParam.length) return { vacio: true, falta: ['La pestaña COMPRAS_PARAM está vacía. Ejecuta configurarCompras.'] };
+  cpColumnasFijas(ss);
   const base = cBase(ss, true);
   if (!Object.keys(base.recetas).length) return { vacio: true, falta: ['La pestaña RECETAS está vacía. Sube Recetas*.xls a la carpeta COSTEO TAXCO.'] };
   const h = ss.getSheetByName(HOJA_PRODUCTOS);
@@ -159,6 +165,26 @@ function getCompras() {
   const res = cpCalcular(base, filasParam, ventas, cpLeerConteos(ss));
   if (!res.vacio) { res.hoy = cpHoy(); res.pedidosHoy = cpPedidosHoy(ss); }
   return res;
+}
+
+/** Unidad base deducida del nombre del MIG, para insumos que ninguna receta usa ("750ML", "(GR)", "X 1KG"). */
+function cpUnidadNombre(n) {
+  const t = String(n).toUpperCase();
+  if (/\d\s*ML\b|\(ML\)|\bML\b/.test(t)) return 'ml';
+  if (/\d\s*(GR|GRS|G)\b|\(GRS?\)|\bGRS?\b|\d\s*KG\b/.test(t)) return 'g';
+  return '';
+}
+
+/** Crea una sola vez los encabezados MAX_FIJO y MIN_FIJO (columnas L y M) en COMPRAS_PARAM. */
+function cpColumnasFijas(ss) {
+  const h = ss.getSheetByName(H_COMPRAS);
+  if (!h) return;
+  const enc = h.getRange(1, 12, 1, 2).getValues()[0];
+  if (cTxt(enc[0]) === 'MAX_FIJO' && cTxt(enc[1]) === 'MIN_FIJO') return;
+  h.getRange(1, 12, 1, 2).setValues([['MAX_FIJO', 'MIN_FIJO']])
+    .setFontWeight('bold').setFontColor('#FFFFFF').setBackground('#1F3864').setHorizontalAlignment('center');
+  h.getRange('L1').setNote('Opcional. Máximo fijo en unidades de compra (botellas, paquetes…). Si lo llenas, el sugerido no usa las recetas para este insumo: pide hasta este número.');
+  h.getRange('M1').setNote('Opcional. Cuándo pedir, en unidades de compra: si el conteo llega a este número o menos, se pide hasta MAX_FIJO. Vacío = la mitad de MAX_FIJO.');
 }
 
 /** Cálculo puro (no lee hojas): fácil de probar. */
@@ -264,13 +290,15 @@ function cpCalcular(base, filasParam, ventas, conteos) {
       k: cTxt(r[10]) || cats[id] || 'Otros',
       p: cTxt(r[3]) || 'Sin proveedor',
       f: factor,
-      u: unidad[id] || '',
+      u: unidad[id] || cpUnidadNombre(cTxt(r[1]) || (ins && ins.nombre) || ''),   // sin receta: se deduce del nombre
       c: costoDe(id),
       s: ins ? ins.saldo : null,
       w: (consumo[id] || new Array(COMPRAS_SEMANAS).fill(0)).map(function (x) { return Math.round(x * 100) / 100; }),
       de: r[5] === '' ? null : cNum(r[5]),
       dc: r[6] === '' ? null : cNum(r[6]),
       mx: cNum(r[7]) * factor,
+      mf: cNum(r[11]) > 0 ? cNum(r[11]) * factor : 0,                    // máximo fijo (unidad base)
+      nf: cNum(r[12]) > 0 ? cNum(r[12]) * factor : 0,                    // mínimo fijo (unidad base)
       cv: conteos[id] ? conteos[id].v : null,                 // conteo tal como se digitó (unidad de compra)
       q: conteos[id] ? conteos[id].v * factor : null,         // conteo en unidad base (g, ml, und)
       cf: conteos[id] ? conteos[id].f : ''

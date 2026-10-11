@@ -1,0 +1,912 @@
+<!-- ============================================================
+  COSTEO TAXCO — pestaña del dashboard (v2.2)
+  Archivo HTML nuevo llamado exactamente "Costeo" dentro del proyecto.
+  No hay que tocar Index.html: doGet() (en Costeo.gs) lo agrega al final de la página.
+  Usa los estilos y colores del dashboard (panel, filtros, nombre, estado).
+============================================================= -->
+<style>
+  #vista-costeo .cx-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  #vista-costeo .cx-barra .filtros { margin: 0; }
+  #vista-costeo .cx-btn { font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; padding: 8px 14px; border-radius: 10px;
+    border: 1px solid var(--line, #E6DEC6); background: var(--panel, #fff); color: var(--ink, #2E2B1C); }
+  #vista-costeo .cx-btn:disabled { opacity: .55; cursor: default; }
+  #vista-costeo .cx-btn:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  #vista-costeo .cx-aviso { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5;
+    background: var(--naranja-suave, #F1ECD6); color: var(--ink, #2E2B1C); border: 1px solid var(--naranja-3, #D9D2A6); }
+
+  #vista-costeo .cx-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  #vista-costeo .cx-kpi { background: var(--panel, #fff); border: 1px solid var(--line, #E6DEC6); border-radius: var(--radio-panel, 16px); padding: 16px 18px; }
+  #vista-costeo .cx-kpi .t { font-size: 13px; color: var(--muted, #7B7560); font-weight: 600; }
+  #vista-costeo .cx-kpi .v { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin-top: 6px; white-space: nowrap; }
+  #vista-costeo .cx-kpi .s { font-size: 12px; color: var(--muted, #7B7560); margin-top: 4px; line-height: 1.35; }
+  #vista-costeo .cx-kpi .v.cx-tv { color: #2A6B48; }
+  #vista-costeo .cx-kpi .v.cx-ta { color: #9A6200; }
+  #vista-costeo .cx-kpi .v.cx-tr { color: #9C3A22; }
+
+  #vista-costeo .cx-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  #vista-costeo .cx-tools input, #vista-costeo .cx-tools select { font: inherit; font-size: 16px; font-weight: 600; color: var(--ink, #2E2B1C);
+    padding: 9px 12px; border: 1px solid var(--line, #E6DEC6); border-radius: 10px; background-color: var(--panel, #fff); }
+  #vista-costeo .cx-tools input { flex: 1; min-width: 170px; font-weight: 500; }
+  #vista-costeo .cx-tools input:focus-visible, #vista-costeo .cx-tools select:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  #vista-costeo .cx-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #vista-costeo .cx-scroll table { min-width: 660px; }
+  #vista-costeo tr.cx-fila { cursor: pointer; }
+  #vista-costeo tr.cx-fila:hover td { background: var(--naranja-suave, #F1ECD6); }
+  #vista-costeo .cx-mas { margin: 12px auto 0; display: block; }
+  #vista-costeo .cx-mas[hidden] { display: none; }
+  .cx-vacio { padding: 22px 8px; text-align: center; color: var(--muted, #7B7560); font-size: 13px; }
+
+  .cx-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .cx-v { background: #E2EDDF; color: #2A6B48; }
+  .cx-a { background: #FFF0D6; color: #9A6200; }
+  .cx-r { background: #F5E1D8; color: #9C3A22; }
+  .cx-g { background: #ECE5CF; color: #7B7560; }
+  .cx-mut { color: var(--muted, #7B7560); font-size: 12px; font-weight: 600; }
+  #vista-costeo .cx-cl { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 700; color: var(--naranja, #6E682C); }
+
+  #vista-costeo .cx-clases { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #vista-costeo .cx-clase { text-align: left; font: inherit; cursor: pointer; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--line, #E6DEC6); background: var(--panel, #fff); color: var(--ink, #2E2B1C); }
+  #vista-costeo .cx-clase.activo { border-color: var(--naranja, #6E682C); background: var(--naranja-suave, #F1ECD6); }
+  #vista-costeo .cx-clase:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  #vista-costeo .cx-clase b { display: block; font-size: 20px; font-weight: 800; }
+  #vista-costeo .cx-clase span { display: block; font-size: 13px; font-weight: 700; margin-top: 2px; }
+  #vista-costeo .cx-clase em { display: block; font-style: normal; font-size: 12px; color: var(--muted, #7B7560); margin-top: 4px; line-height: 1.35; }
+
+  #vista-costeo details.cx-det { border-top: 1px solid var(--line, #E6DEC6); padding: 10px 0; }
+  #vista-costeo details.cx-det:first-of-type { border-top: 0; }
+  #vista-costeo details.cx-det summary { cursor: pointer; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; gap: 10px; list-style: none; }
+  #vista-costeo details.cx-det summary::-webkit-details-marker { display: none; }
+  #vista-costeo details.cx-det summary b { font-weight: 800; color: var(--naranja, #6E682C); }
+  #vista-costeo .cx-ayuda { margin: 8px 0 4px; font-size: 12px; color: var(--muted, #7B7560); line-height: 1.45; }
+  #vista-costeo .cx-ok { border-top: 1px solid var(--line, #E6DEC6); padding: 10px 0; font-size: 13px; color: var(--muted, #7B7560); }
+  #vista-costeo .cx-ok:first-child { border-top: 0; }
+
+  /* Ficha del plato (ventana superpuesta) */
+  .cx-hoja { position: fixed; inset: 0; z-index: 50; display: none; align-items: flex-end; justify-content: center; background: rgba(46, 43, 28, .45); }
+  .cx-hoja .cx-caja { width: 100%; max-width: 760px; max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    background: var(--panel, #fff); border-radius: 18px 18px 0 0; padding: 20px 22px calc(28px + env(safe-area-inset-bottom, 0px));
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif; color: var(--ink, #2E2B1C); }
+  .cx-hoja .cx-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .cx-hoja h3 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+  .cx-hoja .cx-sub { margin: 4px 0 0; font-size: 13px; color: var(--muted, #7B7560); }
+  .cx-hoja .cx-cerrar { font: inherit; font-size: 22px; line-height: 1; cursor: pointer; border: 0; background: var(--bg, #F4EFE1); border-radius: 10px; width: 38px; height: 38px; flex: none; color: var(--ink, #2E2B1C); }
+  .cx-hoja .cx-cerrar:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  .cx-hoja .cx-met { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .cx-hoja .cx-met div { background: var(--bg, #F4EFE1); border-radius: 12px; padding: 10px 12px; }
+  .cx-hoja .cx-met small { display: block; font-size: 11px; color: var(--muted, #7B7560); font-weight: 600; }
+  .cx-hoja .cx-met b { display: block; font-size: 16px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
+  .cx-hoja h4 { margin: 18px 0 8px; font-size: 14px; font-weight: 800; }
+  .cx-hoja .cx-scroll { overflow-x: auto; }
+  .cx-hoja table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 460px; }
+  .cx-hoja th { text-align: left; font-size: 11px; color: var(--muted, #7B7560); font-weight: 600; padding: 0 6px 8px; }
+  .cx-hoja td { padding: 8px 6px; border-top: 1px solid var(--line, #E6DEC6); }
+  .cx-hoja td.num, .cx-hoja th.num { text-align: right; white-space: nowrap; }
+  .cx-hoja .cx-texto { font-size: 14px; line-height: 1.55; white-space: pre-wrap; margin: 0 0 6px; }
+  .cx-hoja .cx-et { font-size: 12px; font-weight: 700; color: var(--muted, #7B7560); margin: 12px 0 2px; }
+  .cx-hoja .cx-falta { color: #9C3A22; font-weight: 700; }
+  .cx-hoja .cx-barrita { height: 5px; background: #EEE7D2; border-radius: 3px; min-width: 60px; }
+  .cx-hoja .cx-barrita i { display: block; height: 5px; border-radius: 3px; background: var(--naranja, #6E682C); }
+
+
+  /* ---- Análisis por áreas y costo ilustrado ---- */
+  #vista-costeo .cx-mig { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; font-size: 14px; }
+  #vista-costeo .cx-mig button { font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; border: 0; background: none; padding: 6px 4px; color: var(--naranja, #6E682C); border-radius: 8px; }
+  #vista-costeo .cx-mig button:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  #vista-costeo .cx-mig b { font-weight: 800; padding: 6px 4px; }
+  #vista-costeo .cx-mig i { font-style: normal; color: var(--muted, #7B7560); }
+  #vista-costeo .cx-res { margin-bottom: 14px; }
+  #vista-costeo .cx-res-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 6px 0 16px; }
+  #vista-costeo .cx-res-grid div { background: var(--bg, #F4EFE1); border-radius: 12px; padding: 10px 12px; }
+  #vista-costeo .cx-res-grid small { display: block; font-size: 11px; color: var(--muted, #7B7560); font-weight: 600; }
+  #vista-costeo .cx-res-grid b { display: block; font-size: 18px; font-weight: 800; margin-top: 3px; white-space: nowrap; }
+  #vista-costeo .cx-res-grid em { display: block; font-style: normal; font-size: 11px; color: var(--muted, #7B7560); margin-top: 2px; }
+  #vista-costeo .cx-sub2 { font-size: 13px; color: var(--muted, #7B7560); margin: 0 0 8px; line-height: 1.45; }
+  #vista-costeo .cx-orden { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+  #vista-costeo .cx-orden select { font: inherit; font-size: 16px; font-weight: 600; padding: 8px 12px; border: 1px solid var(--line, #E6DEC6); border-radius: 10px; background-color: var(--panel, #fff); color: var(--ink, #2E2B1C); }
+  #vista-costeo .cx-ley { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted, #7B7560); font-weight: 600; }
+  #vista-costeo .cx-ley span { display: inline-flex; align-items: center; gap: 6px; }
+  #vista-costeo .cx-ley u { display: inline-block; width: 2px; height: 12px; background: var(--ink, #2E2B1C); text-decoration: none; }
+  #vista-costeo .cx-ley u.meta { background: #2F7A55; }
+
+  #vista-costeo .cx-nf { display: grid; grid-template-columns: minmax(150px, 1.3fr) minmax(150px, 2fr) 120px 150px; gap: 14px; align-items: center; width: 100%; text-align: left;
+    font: inherit; cursor: pointer; padding: 14px 8px; border: 0; border-top: 1px solid var(--line, #E6DEC6); background: none; color: var(--ink, #2E2B1C); }
+  #vista-costeo .cx-nf:first-of-type { border-top: 0; }
+  #vista-costeo .cx-nf:hover { background: var(--naranja-suave, #F1ECD6); }
+  #vista-costeo .cx-nf:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  #vista-costeo .cx-nf b { font-size: 14px; font-weight: 800; line-height: 1.25; }
+  #vista-costeo .cx-nf small { display: block; font-size: 12px; color: var(--muted, #7B7560); margin-top: 3px; font-weight: 500; line-height: 1.35; }
+  #vista-costeo .cx-nf .cx-nf-fc, #vista-costeo .cx-nf .cx-nf-m { text-align: right; }
+  #vista-costeo .cx-nf .cx-nf-m b { font-size: 15px; }
+
+  .tx-barra { position: relative; height: 10px; background: #EEE7D2; border-radius: 5px; margin: 6px 0; }
+  .tx-barra .rel { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; }
+  .tx-barra .mk { position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; background: #2E2B1C; border-radius: 1px; }
+  .tx-barra .mk.meta { background: #2F7A55; }
+  .tx-v { background: #2F7A55; } .tx-a { background: #E0A23A; } .tx-r { background: #A8432A; }
+
+  .tx-viz { margin: 14px 0 6px; font-family: 'Manrope', system-ui, -apple-system, sans-serif; color: var(--ink, #2E2B1C); }
+  .tx-viz h4 { margin: 0 0 4px; font-size: 15px; font-weight: 800; }
+  .tx-viz .tx-p { margin: 0 0 10px; font-size: 13px; color: var(--muted, #7B7560); }
+  .tx-pila { display: flex; height: 34px; border-radius: 9px; overflow: hidden; background: #EEE7D2; }
+  .tx-pila i { display: block; height: 100%; min-width: 2px; }
+  .tx-pila i + i { border-left: 2px solid #fff; }
+  .tx-mg { background: #A9CFAE; }
+  .tx-nd { background: repeating-linear-gradient(45deg, #ECE5CF, #ECE5CF 6px, #DDD4B9 6px, #DDD4B9 12px); }
+  .tx-frase { margin: 10px 0 8px; font-size: 14px; line-height: 1.5; }
+  .tx-frase b { font-weight: 800; }
+  .tx-ley { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .tx-ley li { display: grid; grid-template-columns: 14px 1fr auto 74px; gap: 10px; align-items: center; font-size: 13px; padding: 5px 0; border-top: 1px solid var(--line, #E6DEC6); }
+  .tx-ley li:first-child { border-top: 0; }
+  .tx-ley li > i { width: 12px; height: 12px; border-radius: 4px; display: block; }
+  .tx-ley li b { font-weight: 800; white-space: nowrap; }
+  .tx-ley li em { font-style: normal; color: var(--muted, #7B7560); text-align: right; white-space: nowrap; }
+  .tx-todos { margin-top: 8px; font-size: 13px; }
+  .tx-todos summary { cursor: pointer; font-weight: 700; color: var(--naranja, #6E682C); }
+  .tx-todos table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; min-width: 420px; }
+  .tx-todos th { text-align: left; font-size: 11px; color: var(--muted, #7B7560); font-weight: 600; padding: 0 6px 6px; }
+  .tx-todos td { padding: 6px; border-top: 1px solid var(--line, #E6DEC6); }
+  .tx-todos .num { text-align: right; white-space: nowrap; }
+  .tx-todos .scroll { overflow-x: auto; }
+
+  .tx-esc { position: relative; height: 54px; margin: 8px 8px 0; }
+  .tx-esc .eje { position: absolute; left: 0; right: 0; top: 24px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #E2EDDF 0, #E2EDDF 50%, #FFF0D6 50%, #FFF0D6 63.3%, #F5E1D8 63.3%, #F5E1D8 100%); }
+  .tx-esc .tk { position: absolute; top: 36px; transform: translateX(-50%); font-size: 11px; color: var(--muted, #7B7560); font-weight: 600; }
+  .tx-esc .pt { position: absolute; transform: translateX(-50%); }
+  .tx-esc .plato { top: 14px; width: 16px; height: 26px; }
+  .tx-esc .plato::after { content: ''; position: absolute; left: 1px; top: 5px; width: 14px; height: 14px; border-radius: 50%; background: #6E682C; border: 3px solid #fff; box-shadow: 0 0 0 1px #6E682C; }
+  .tx-esc .tick { top: 16px; width: 2px; height: 22px; background: #2E2B1C; border-radius: 1px; }
+  .tx-esc .tick.area { background: #9C9680; }
+  .tx-esc .tick.meta { background: #2F7A55; }
+  .tx-esc-ley { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 18px; margin-top: 10px; }
+  .tx-esc-ley div { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+  .tx-esc-ley i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .tx-esc-ley b { font-weight: 800; white-space: nowrap; }
+  .tx-datos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 6px 0 4px; }
+  .tx-datos div { background: var(--bg, #F4EFE1); border-radius: 12px; padding: 10px 12px; }
+  .tx-datos small { display: block; font-size: 11px; color: var(--muted, #7B7560); font-weight: 600; }
+  .tx-datos b { display: block; font-size: 16px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
+  .tx-rank { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
+  .tx-rank div { border: 1px solid var(--line, #E6DEC6); border-radius: 12px; padding: 10px 12px; }
+  .tx-rank b { display: block; font-size: 20px; font-weight: 800; }
+  .tx-rank span { display: block; font-size: 12px; color: var(--muted, #7B7560); margin-top: 2px; line-height: 1.35; }
+
+  @media (max-width: 900px) {
+    #vista-costeo .cx-res-grid { grid-template-columns: repeat(2, 1fr); }
+    #vista-costeo .cx-nf { grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+    #vista-costeo .cx-nf .cx-nf-bar { grid-column: 1 / -1; order: 3; }
+    #vista-costeo .cx-nf .cx-nf-fc { text-align: right; }
+    #vista-costeo .cx-nf .cx-nf-m { grid-column: 1 / -1; order: 4; text-align: left; }
+    .tx-datos { grid-template-columns: repeat(2, 1fr); }
+    .tx-rank { grid-template-columns: 1fr; }
+    .tx-esc-ley { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 1100px) { #vista-costeo .cx-kpis { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) {
+    #vista-costeo .cx-kpis { grid-template-columns: 1fr; }
+    #vista-costeo .cx-clases { grid-template-columns: 1fr; }
+    .cx-hoja .cx-met { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 900px) { .cx-hoja { align-items: center; } .cx-hoja .cx-caja { border-radius: 18px; } }
+</style>
+
+<div id="vista-costeo" hidden>
+  <div class="filtros" id="cx-modo" style="margin-bottom:12px">
+    <button type="button" data-m="areas" class="activo">Por áreas</button>
+    <button type="button" data-m="lista">Lista de platos</button>
+  </div>
+  <div class="cx-barra">
+    <div class="filtros" id="cx-areas">
+      <button type="button" data-a="" class="activo">Todas</button>
+      <button type="button" data-a="Cocina">Cocina</button>
+      <button type="button" data-a="Barra">Barra</button>
+      <button type="button" data-a="Postres">Postres</button>
+      <button type="button" data-a="Otros">Otros</button>
+    </div>
+    <button type="button" class="cx-btn" id="cx-actualizar">Actualizar desde Drive</button>
+  </div>
+
+  <div class="cx-aviso" id="cx-aviso" hidden></div>
+  <div class="estado" id="cx-estado"><b>Cargando costeo…</b>Leyendo la hoja VENTAS TAXCO.</div>
+
+  <div id="cx-cuerpo" hidden>
+    <div id="cx-analisis"></div>
+    <div id="cx-lista-wrap" hidden>
+    <section class="cx-kpis" id="cx-kpis"></section>
+
+    <div class="panel" style="margin-bottom:14px">
+      <h2>Platos y margen</h2>
+      <p class="sub" id="cx-sub"></p>
+      <div class="cx-tools">
+        <input id="cx-busca" type="search" placeholder="Buscar producto…" aria-label="Buscar producto">
+        <select id="cx-orden" aria-label="Ordenar por">
+          <option value="aporte">Más margen semanal</option>
+          <option value="fc">Food cost más alto</option>
+          <option value="margen">Mayor margen por unidad</option>
+          <option value="und">Más vendidos</option>
+          <option value="nombre">Nombre</option>
+        </select>
+      </div>
+      <div class="cx-scroll">
+        <table>
+          <thead><tr>
+            <th>Producto</th><th class="num">Precio sin IPO</th><th class="num">Costo</th><th class="num">Food cost</th>
+            <th class="num">Margen</th><th class="num">Und. por semana</th><th class="num" id="cx-th-cambio">Costo vs. anterior</th>
+          </tr></thead>
+          <tbody id="cx-filas"></tbody>
+        </table>
+      </div>
+      <button type="button" class="cx-btn cx-mas" id="cx-mas" hidden>Ver más</button>
+    </div>
+
+    <div class="fila fila-1-1">
+      <div class="panel">
+        <h2>Qué vender más y qué revisar</h2>
+        <p class="sub" id="cx-sub-clases"></p>
+        <div class="cx-clases" id="cx-clases"></div>
+      </div>
+      <div class="panel">
+        <h2>Para revisar</h2>
+        <p class="sub">Datos que faltan o cambiaron y afectan el costo.</p>
+        <div id="cx-alertas"></div>
+      </div>
+    </div>
+
+    <p class="nota" id="cx-nota"></p>
+    </div>
+  </div>
+</div>
+
+<div class="cx-hoja" id="cx-ficha" role="dialog" aria-modal="true" aria-labelledby="cx-ficha-titulo">
+  <div class="cx-caja" id="cx-ficha-caja"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var vista = document.getElementById('vista-costeo');
+  if (!vista) return;
+
+  /* ---------- Utilidades ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  var MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  var fechaTxt = function (f) {
+    if (!f) return '';
+    var p = f.split('-');
+    return (+p[2]) + ' ' + MES[+p[1] - 1] + ' ' + p[0];
+  };
+  var pesos = function (v) { return '$' + Math.round(v).toLocaleString('es-CO'); };
+  var corto = function (v) {
+    var a = Math.abs(v), s = v < 0 ? '−' : '';
+    if (a >= 1e6) return s + '$' + (a / 1e6).toFixed(1).replace('.', ',') + ' M';
+    if (a >= 1e3) return s + '$' + Math.round(a / 1e3) + ' mil';
+    return s + '$' + Math.round(a);
+  };
+  var pc = function (v, d) { return (v * 100).toFixed(d == null ? 1 : d).replace('.', ',') + '%'; };
+  var und = function (v) { return v >= 10 ? Math.round(v).toLocaleString('es-CO') : v.toFixed(1).replace('.', ','); };
+  var norm = function (s) { return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+
+  var CL = { E: 'Estrella', C: 'Caballo de batalla', R: 'Rompecabezas', P: 'Perro', S: 'Sin ventas' };
+  var CL_AYUDA = {
+    E: 'Venden bien y dejan buen margen. Cuídalos.',
+    C: 'Venden bien pero dejan poco. Revisa precio o costo.',
+    R: 'Dejan buen margen pero se piden poco. Promuévelos.',
+    P: 'Venden poco y dejan poco. Evalúa ajustarlos o retirarlos.'
+  };
+
+  var D = null, AREA = '', CLASE = '', BUSCA = '', ORDEN = 'aporte', LIMITE = 40, activo = false, cargando = false;
+
+  var claseFc = function (f) { return f <= D.objetivo.verde ? 'cx-v' : f <= D.objetivo.ambar ? 'cx-a' : 'cx-r'; };
+  var textoFc = function (f) { return f <= D.objetivo.verde ? 'cx-tv' : f <= D.objetivo.ambar ? 'cx-ta' : 'cx-tr'; };
+
+  /* ---------- Montaje en la página ---------- */
+  var main = document.querySelector('main.contenido') || document.querySelector('main') || document.body;
+  main.appendChild(vista);
+  document.body.appendChild($('cx-ficha'));
+
+  var menu = document.querySelector('.menu');
+  var otros = Array.prototype.slice.call(document.querySelectorAll('.menu button'));
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.setAttribute('data-vista', 'costeo');
+  btn.textContent = 'Costeo';
+  if (menu) menu.appendChild(btn);
+  else { btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:5'; document.body.appendChild(btn); }
+  var controles = document.querySelector('.controles');
+  var periodoEl = $('periodo');
+
+  function textoPeriodo() {
+    if (!D || D.vacio) return 'Costos y márgenes por producto';
+    return 'Costos de bodega al ' + fechaTxt(D.fechas.saldos) + (D.fechas.previa ? ' · comparado con ' + fechaTxt(D.fechas.previa) : '');
+  }
+  function fijarPeriodo() { if (activo && periodoEl && periodoEl.textContent !== textoPeriodo()) periodoEl.textContent = textoPeriodo(); }
+
+  function ocultar() {
+    activo = false;
+    vista.hidden = true;
+    if (controles) controles.style.display = '';
+  }
+  // En fase de captura: corre antes que los botones originales, así Costeo ya está oculto cuando Ventas o Productos se pintan
+  if (menu) menu.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && b !== btn) ocultar(); }, true);
+  else otros.forEach(function (b) { b.addEventListener('click', ocultar, true); });
+
+  btn.addEventListener('click', function () {
+    activo = true;
+    ['tablero', 'vista-productos'].forEach(function (id) { var e = $(id); if (e) e.hidden = true; });
+    document.querySelectorAll('.menu button').forEach(function (x) { x.classList.toggle('activo', x === btn); });
+    var t = $('titulo'); if (t) t.textContent = 'Costeo';
+    if (controles) controles.style.display = 'none';
+    vista.hidden = false;
+    fijarPeriodo();
+    if (!D && !cargando) cargar();
+  });
+
+  // Si los datos de Ventas terminan de cargar mientras se ve Costeo, no deben tapar esta pestaña
+  if (window.MutationObserver) {
+    var tab = $('tablero');
+    if (tab) new MutationObserver(function () { if (activo && !tab.hidden) tab.hidden = true; }).observe(tab, { attributes: true, attributeFilter: ['hidden'] });
+    if (periodoEl) new MutationObserver(fijarPeriodo).observe(periodoEl, { childList: true, characterData: true, subtree: true });
+  }
+
+  /* ---------- Carga de datos ---------- */
+  function estado(titulo, texto) {
+    var e = $('cx-estado');
+    e.hidden = false;
+    e.innerHTML = '<b>' + esc(titulo) + '</b>' + texto;
+    $('cx-cuerpo').hidden = true;
+  }
+
+  function cargar() {
+    if (typeof google === 'undefined' || !google.script) return;
+    cargando = true;
+    estado('Cargando costeo…', 'Leyendo la hoja VENTAS TAXCO.');
+    google.script.run
+      .withSuccessHandler(function (d) { cargando = false; D = d; pintar(); fijarPeriodo(); })
+      .withFailureHandler(function (e) { cargando = false; estado('No se pudo leer el costeo', esc(e && e.message) + '. Revisa que Costeo.gs esté pegado y ejecuta configurarCosteo.'); })
+      .getCosteo();
+  }
+
+  $('cx-actualizar').onclick = function () {
+    var b = $('cx-actualizar'), av = $('cx-aviso');
+    b.disabled = true;
+    av.hidden = false;
+    av.textContent = 'Leyendo los archivos de la carpeta COSTEO TAXCO en Drive…';
+    google.script.run
+      .withSuccessHandler(function (r) {
+        b.disabled = false;
+        av.innerHTML = r.mensajes.map(esc).join('<br>');
+        cargar();
+      })
+      .withFailureHandler(function (e) {
+        b.disabled = false;
+        av.textContent = 'No se pudo actualizar: ' + (e && e.message);
+      })
+      .cargarCosteoDrive();
+  };
+
+  /* ---------- Filtros ---------- */
+  document.querySelectorAll('#cx-areas button').forEach(function (b) {
+    b.onclick = function () {
+      AREA = b.dataset.a; LIMITE = 40;
+      document.querySelectorAll('#cx-areas button').forEach(function (x) { x.classList.toggle('activo', x === b); });
+      if (D && !D.vacio) pintar();
+    };
+  });
+  $('cx-busca').oninput = function (e) { BUSCA = norm(e.target.value); LIMITE = 40; if (D && !D.vacio) pintarTabla(); };
+  $('cx-orden').onchange = function (e) { ORDEN = e.target.value; if (D && !D.vacio) pintarTabla(); };
+  $('cx-mas').onclick = function () { LIMITE += 40; pintarTabla(); };
+  $('cx-clases').onclick = function (e) {
+    var c = e.target.closest('[data-c]');
+    if (!c) return;
+    CLASE = CLASE === c.dataset.c ? '' : c.dataset.c; LIMITE = 40;
+    pintarClases(); pintarTabla();
+  };
+  $('cx-filas').onclick = function (e) {
+    var f = e.target.closest('tr[data-i]');
+    if (f) abrirFicha(f.dataset.i);
+  };
+
+  /* ---------- Pintar ---------- */
+  var delArea = function () { return D.productos.filter(function (x) { return !AREA || x.a === AREA; }); };
+
+  function pintar() {
+    $('cx-estado').hidden = true;
+    if (D.vacio) {
+      estado('Todavía no hay datos de costeo',
+        'Falta cargar: ' + esc(D.falta.join(', ')) + '. Sube los reportes del MIG a la carpeta COSTEO TAXCO de Drive y toca “Actualizar desde Drive”.');
+      return;
+    }
+    $('cx-cuerpo').hidden = false;
+    $('cx-th-cambio').style.display = D.fechas.previa ? '' : 'none';
+    pintarKpis(); pintarClases(); pintarTabla(); pintarAlertas(); pintarNota();
+    pintarAnalisis(); aplicarModo();
+  }
+
+  function pintarKpis() {
+    var v = delArea();
+    var vend = v.filter(function (x) { return x.ok && x.u > 0; });
+    var venta = vend.reduce(function (s, x) { return s + x.p * x.u; }, 0);
+    var costo = vend.reduce(function (s, x) { return s + x.c * x.u; }, 0);
+    var fc = venta > 0 ? costo / venta : null;
+    var margen = vend.reduce(function (s, x) { return s + x.m * x.u; }, 0);
+    var altos = vend.filter(function (x) { return x.f > D.objetivo.ambar; }).length;
+    var incompletos = v.filter(function (x) { return !x.ok; }).length;
+    var k = function (t, val, sub, cls) {
+      return '<article class="cx-kpi"><div class="t">' + t + '</div><div class="v ' + (cls || '') + '">' + val + '</div><div class="s">' + sub + '</div></article>';
+    };
+    $('cx-kpis').innerHTML =
+      k('Food cost real', fc == null ? '—' : pc(fc), 'Costo ÷ venta sin IPO, ponderado por ventas. Meta: hasta ' + pc(D.objetivo.verde, 0), fc == null ? '' : textoFc(fc)) +
+      k('Margen por semana', corto(margen), 'Lo que deja la venta después del costo, en ' + vend.length + ' productos con ventas') +
+      k('Food cost alto', String(altos), 'Productos con ventas por encima de ' + pc(D.objetivo.ambar, 0), altos ? 'cx-tr' : '') +
+      k('Costo incompleto', String(incompletos), 'Sin costo en algún insumo, o con precio de relleno. Mira “Para revisar”');
+  }
+
+  function pintarClases() {
+    var v = delArea();
+    var cuenta = { E: 0, C: 0, R: 0, P: 0, S: 0 };
+    v.forEach(function (x) { if (x.cl) cuenta[x.cl]++; });
+    $('cx-sub-clases').textContent = 'Compara lo que se vende con lo que deja cada producto, dentro de su área. Toca una para filtrar la tabla.';
+    $('cx-clases').innerHTML = ['E', 'C', 'R', 'P'].map(function (c) {
+      return '<button type="button" class="cx-clase' + (CLASE === c ? ' activo' : '') + '" data-c="' + c + '"><b>' + cuenta[c] + '</b><span>' + CL[c] +
+        '</span><em>' + CL_AYUDA[c] + '</em></button>';
+    }).join('') +
+      (cuenta.S ? '<p class="nota" style="grid-column:1/-1;margin:2px 0 0">' + cuenta.S + ' productos con costo completo no se vendieron en las últimas 13 semanas.</p>' : '');
+  }
+
+  function filtrados() {
+    var f = delArea().filter(function (x) {
+      if (CLASE && x.cl !== CLASE) return false;
+      if (BUSCA && norm(x.n + ' ' + x.g).indexOf(BUSCA) < 0) return false;
+      return true;
+    });
+    var ord = {
+      aporte: function (a, b) { return b.k - a.k || b.u - a.u; },
+      fc: function (a, b) { return (b.ok ? b.f : -1) - (a.ok ? a.f : -1); },
+      margen: function (a, b) { return (b.ok ? b.m : -1e12) - (a.ok ? a.m : -1e12); },
+      und: function (a, b) { return b.u - a.u; },
+      nombre: function (a, b) { return a.n.localeCompare(b.n, 'es'); }
+    };
+    return f.sort(ord[ORDEN]);
+  }
+
+  function celdaCambio(x) {
+    if (x.d == null) return '<span class="cx-mut">—</span>';
+    if (Math.abs(x.d) < 0.02) return '<span class="cx-mut">igual</span>';
+    return '<span class="cx-chip ' + (x.d > 0 ? 'cx-r' : 'cx-v') + '">' + (x.d > 0 ? '↑ ' : '↓ ') + pc(Math.abs(x.d), 0) + '</span>';
+  }
+
+  function pintarTabla() {
+    var f = filtrados();
+    var total = f.length;
+    var verFilas = f.slice(0, LIMITE);
+    var hayPrev = !!D.fechas.previa;
+    $('cx-sub').textContent = total + ' productos activos con receta y precio' +
+      (D.fechas.ventasHasta ? ' · ventas de las últimas 13 semanas hasta el ' + fechaTxt(D.fechas.ventasHasta) : '') + '. Toca uno para ver su receta.';
+    $('cx-filas').innerHTML = verFilas.length ? verFilas.map(function (x) {
+      var cl = x.cl && CL[x.cl] ? '<span class="cx-cl">' + CL[x.cl] + '</span>' : '';
+      var fc = x.ok ? '<span class="cx-chip ' + claseFc(x.f) + '">' + pc(x.f) + '</span>'
+        : '<span class="cx-chip cx-g">' + (x.at ? 'Revisar precio' : 'Costo incompleto') + '</span>';
+      var costo = x.ok ? pesos(x.c) : (x.c > 0 && !x.at ? '<span class="cx-mut">' + pesos(x.c) + ' + ?</span>' : '<span class="cx-mut">—</span>');
+      return '<tr class="cx-fila" data-i="' + esc(x.i) + '"><td><div class="nombre">' + esc(x.n) + '<small>' + esc(x.g) + cl + '</small></div></td>' +
+        '<td class="num">' + pesos(x.p) + '</td><td class="num">' + costo + '</td><td class="num">' + fc + '</td>' +
+        '<td class="num">' + (x.ok ? '<b>' + pesos(x.m) + '</b>' : '<span class="cx-mut">—</span>') + '</td>' +
+        '<td class="num">' + (x.u > 0 ? und(x.u) : '<span class="cx-mut">0</span>') + '</td>' +
+        (hayPrev ? '<td class="num">' + celdaCambio(x) + '</td>' : '') + '</tr>';
+    }).join('') : '<tr><td colspan="7"><div class="cx-vacio">No hay productos con ese filtro.</div></td></tr>';
+    $('cx-mas').hidden = total <= LIMITE;
+  }
+
+  function pintarAlertas() {
+    var a = D.alertas;
+    var tabla = function (filas) { return '<div class="cx-scroll"><table><tbody>' + filas + '</tbody></table></div>'; };
+    var sec = function (titulo, bloque, ayuda, filasFn) {
+      if (!bloque.total) return '<div class="cx-ok">' + titulo + ': sin pendientes</div>';
+      var mas = bloque.total > bloque.lista.length ? '<p class="cx-ayuda">Se muestran ' + bloque.lista.length + ' de ' + bloque.total + '.</p>' : '';
+      return '<details class="cx-det"><summary><span>' + titulo + '</span><b>' + bloque.total + '</b></summary>' +
+        '<p class="cx-ayuda">' + ayuda + '</p>' + tabla(bloque.lista.map(filasFn).join('')) + mas + '</details>';
+    };
+    var html = '';
+    html += sec('Insumos sin costo', a.sinCosto,
+      'Están en recetas pero no tienen costo en bodega. Mientras tanto esos platos quedan incompletos. Agrégalos en la pestaña COSTOS_MANUALES (ID, nombre y costo).',
+      function (x) { return '<tr><td><div class="nombre">' + esc(x.n) + '<small>ID ' + esc(x.i) + '</small></div></td><td class="num">' + x.usos + (x.usos === 1 ? ' plato' : ' platos') + '</td></tr>'; });
+    html += sec('Productos sin receta', a.sinReceta,
+      'Tienen precio y están activos, pero no aparecen en el reporte de Recetas. Sin receta no hay costo ni margen.',
+      function (x) { return '<tr><td><div class="nombre">' + esc(x.n) + '<small>ID ' + esc(x.i) + '</small></div></td><td class="num">' + pesos(x.pv) + '</td></tr>'; });
+    html += sec('Precio de relleno', a.precioBajo,
+      'Precio menor a $1.500 (por ejemplo, adiciones a $100). No entran en márgenes ni en food cost.',
+      function (x) { return '<tr><td><div class="nombre">' + esc(x.n) + '<small>ID ' + esc(x.i) + '</small></div></td><td class="num">' + pesos(x.pv) + '</td></tr>'; });
+    if (D.fechas.previa) {
+      html += sec('Insumos que cambiaron de precio', a.cambios,
+        'Variación de 10% o más frente al ' + fechaTxt(D.fechas.previa) + ', ordenada por impacto.',
+        function (x) {
+          return '<tr><td><div class="nombre">' + esc(x.n) + '<small>' + pesos(x.a) + ' → ' + pesos(x.b) + ' por unidad · en ' + x.usos + (x.usos === 1 ? ' receta' : ' recetas') + '</small></div></td>' +
+            '<td class="num"><span class="cx-chip ' + (x.d > 0 ? 'cx-r' : 'cx-v') + '">' + (x.d > 0 ? '↑ ' : '↓ ') + pc(Math.abs(x.d), 0) + '</span></td></tr>';
+        });
+    }
+    html += sec('Costo del MIG desactualizado', a.difMig,
+      'El costo que guarda el MIG en el producto difiere 5% o más del calculado con la receta y los costos de bodega.',
+      function (x) {
+        return '<tr><td><div class="nombre">' + esc(x.n) + '<small>MIG ' + pesos(x.mig) + ' · receta ' + pesos(x.c) + '</small></div></td>' +
+          '<td class="num"><span class="cx-chip ' + (x.d > 0 ? 'cx-r' : 'cx-v') + '">' + (x.d > 0 ? '↑ ' : '↓ ') + pc(Math.abs(x.d), 0) + '</span></td></tr>';
+      });
+    html += sec('Saldos negativos en bodega', a.negativos,
+      'Insumos con saldo menor a cero: faltan entradas por registrar o hay recetas mal cargadas.',
+      function (x) { return '<tr><td><div class="nombre">' + esc(x.n) + '<small>ID ' + esc(x.i) + '</small></div></td><td class="num">' + und(x.s) + '</td></tr>'; });
+    $('cx-alertas').innerHTML = html;
+  }
+
+  function pintarNota() {
+    var c = D.cargas || {};
+    $('cx-nota').textContent = 'Costos de bodega al ' + fechaTxt(D.fechas.saldos) +
+      (c.recetas ? ' · recetas cargadas el ' + fechaTxt(c.recetas) : '') + (c.productos ? ' · productos el ' + fechaTxt(c.productos) : '') +
+      '. Food cost = costo ÷ precio sin impoconsumo. El costo de cada insumo sale del reporte Saldos de bodega.';
+  }
+
+
+  /* ======================================================================
+     Análisis por áreas: de lo general a lo particular
+     Restaurante > Área (Cocina) > Grupo (México lindo) > Producto (Quesadilla)
+  ====================================================================== */
+  var MODO = 'areas', RUTA = [], ORD_AN = 'margen', DET = {};
+  var ESC_MAX = 0.6;
+  var bonito = function (g) { g = String(g || 'Sin grupo').toLowerCase(); return g.charAt(0).toUpperCase() + g.slice(1); };
+  var ppTxt = function (d) { return (d > 0.0005 ? '+' : d < -0.0005 ? '−' : '') + Math.abs(d * 100).toFixed(1).replace('.', ',') + ' pp'; };
+  var limpio = function (n) { return String(n || '').replace(/^\s*(INS|SUBR|SUBC)\.?\s*/i, '').replace(/\s+/g, ' ').trim(); };
+  var PAL = ['#6E682C', '#3D6E8C', '#8A5A8C', '#2E8A8A', '#C99A2E'];
+
+  function aplicarModo() {
+    $('cx-analisis').hidden = MODO !== 'areas';
+    $('cx-lista-wrap').hidden = MODO !== 'lista';
+    $('cx-areas').style.display = MODO === 'lista' ? '' : 'none';
+    document.querySelectorAll('#cx-modo button').forEach(function (b) { b.classList.toggle('activo', b.dataset.m === MODO); });
+  }
+  document.querySelectorAll('#cx-modo button').forEach(function (b) {
+    b.onclick = function () { MODO = b.dataset.m; if (D && !D.vacio) aplicarModo(); };
+  });
+  $('cx-areas').style.display = 'none';
+
+  function agg(items) {
+    var ok = items.filter(function (x) { return x.ok; });
+    var vend = ok.filter(function (x) { return x.u > 0; });
+    var venta = 0, costo = 0, margen = 0, suma = 0;
+    vend.forEach(function (x) { venta += x.p * x.u; costo += x.c * x.u; margen += x.m * x.u; });
+    ok.forEach(function (x) { suma += x.f; });
+    return { n: items.length, nOk: ok.length, nVend: vend.length, venta: venta, costo: costo, margen: margen,
+             fc: venta > 0 ? costo / venta : null, fcSimple: ok.length ? suma / ok.length : null, inc: items.length - ok.length };
+  }
+  var fcRef = function (a) { return a.fc != null ? a.fc : a.fcSimple; };
+
+  function alcance() {
+    var todo = D.productos.filter(function (x) { return !x.at; });
+    var area = RUTA[0] ? todo.filter(function (x) { return x.a === RUTA[0]; }) : todo;
+    var grupo = RUTA[1] ? area.filter(function (x) { return x.g === RUTA[1]; }) : area;
+    return { todo: todo, area: area, grupo: grupo };
+  }
+
+  var tonoFc = function (f) { return f <= D.objetivo.verde ? 'tx-v' : f <= D.objetivo.ambar ? 'tx-a' : 'tx-r'; };
+
+  // Barra de food cost con dos marcas: promedio del nivel superior y meta
+  function barraFc(f, ref) {
+    var pos = function (v) { return (Math.min(Math.max(v / ESC_MAX, 0), 1) * 100).toFixed(1); };
+    return '<div class="tx-barra"><i class="rel ' + tonoFc(f) + '" style="width:' + pos(f) + '%"></i>' +
+      (ref != null ? '<i class="mk" style="left:' + pos(ref) + '%" title="Promedio"></i>' : '') +
+      '<i class="mk meta" style="left:' + pos(D.objetivo.verde) + '%" title="Meta"></i></div>';
+  }
+
+  function chipDelta(f, ref) {
+    if (f == null || ref == null) return '';
+    var d = f - ref;
+    return '<span class="cx-chip ' + (d > 0.0005 ? 'cx-r' : d < -0.0005 ? 'cx-v' : 'cx-g') + '">' + ppTxt(d) + '</span>';
+  }
+
+  function resumenHtml(titulo, desc, a, padreNombre, padre) {
+    var f = fcRef(a);
+    var dif = padre && f != null && fcRef(padre) != null ? ppTxt(f - fcRef(padre)) + ' frente a ' + padreNombre : '';
+    var cell = function (t, v, em, cls) { return '<div><small>' + t + '</small><b class="' + (cls || '') + '">' + v + '</b>' + (em ? '<em>' + em + '</em>' : '') + '</div>'; };
+    var cien = '';
+    if (a.venta > 0) {
+      var cp = a.costo / a.venta * 100, mp = 100 - cp;
+      cien = '<h4 style="margin:6px 0 4px;font-size:14px;font-weight:800">¿Cómo se reparte cada $100 que se venden?</h4>' +
+        '<div class="tx-pila" role="img" aria-label="Costo ' + cp.toFixed(0) + ' pesos, margen ' + mp.toFixed(0) + ' pesos de cada 100"><i style="width:' + cp.toFixed(2) + '%;background:#6E682C"></i><i class="tx-mg" style="width:' + mp.toFixed(2) + '%"></i></div>' +
+        '<p class="tx-frase" style="margin-bottom:0">De cada $100 vendidos (sin impoconsumo), <b>$' + cp.toFixed(1).replace('.', ',') + '</b> son costo y <b>$' + mp.toFixed(1).replace('.', ',') + '</b> quedan de margen.</p>';
+    }
+    return '<div class="panel cx-res"><h2>' + esc(titulo) + '</h2><p class="sub" style="margin-bottom:10px">' + esc(desc) + '</p>' +
+      '<div class="cx-res-grid">' +
+      cell('Food cost real', f == null ? '—' : pc(a.fc != null ? a.fc : a.fcSimple), dif, f == null ? '' : textoFc(f)) +
+      cell('Promedio del menú', a.fcSimple == null ? '—' : pc(a.fcSimple), 'Todos los productos pesan igual') +
+      cell('Ventas por semana', corto(a.venta), 'Sin impoconsumo') +
+      cell('Costo por semana', corto(a.costo)) +
+      cell('Margen por semana', corto(a.margen), a.nVend + ' productos con ventas') + '</div>' + cien +
+      (a.inc ? '<p class="cx-sub2" style="margin:10px 0 0">' + a.inc + ' productos sin costo completo no entran en estos cálculos.</p>' : '') + '</div>';
+  }
+
+  function migas() {
+    var partes = [{ t: 'Restaurante', n: 0 }];
+    if (RUTA[0]) partes.push({ t: RUTA[0], n: 1 });
+    if (RUTA[1]) partes.push({ t: bonito(RUTA[1]), n: 2 });
+    if (RUTA[2]) {
+      var x = D.productos.filter(function (p) { return p.i === RUTA[2]; })[0];
+      partes.push({ t: x ? x.n : 'Producto', n: 3 });
+    }
+    return '<nav class="cx-mig" aria-label="Ubicación">' + partes.map(function (p, i) {
+      var ultimo = i === partes.length - 1;
+      return (i ? '<i>›</i>' : '') + (ultimo ? '<b>' + esc(p.t) + '</b>' : '<button type="button" data-n="' + p.n + '">' + esc(p.t) + '</button>');
+    }).join('') + '</nav>';
+  }
+
+  var ORD_OP = [['margen', 'Más margen por semana'], ['fc', 'Food cost más alto'], ['venta', 'Más ventas'], ['nombre', 'Nombre']];
+  function selOrden() {
+    return '<div class="cx-orden"><div class="cx-ley"><span><u></u>Promedio del nivel superior</span><span><u class="meta"></u>Meta ' + pc(D.objetivo.verde, 0) + '</span></div>' +
+      '<select id="cx-an-orden" aria-label="Ordenar">' + ORD_OP.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === ORD_AN ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
+  }
+
+  function ordenAgg(rows) {
+    var o = {
+      margen: function (a, b) { return b.margen - a.margen; },
+      fc: function (a, b) { return (fcRef(b) || 0) - (fcRef(a) || 0); },
+      venta: function (a, b) { return b.venta - a.venta; },
+      nombre: function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); }
+    };
+    return rows.sort(o[ORD_AN]);
+  }
+
+  function filaAgg(r, padre, padreNombre) {
+    var f = fcRef(r), ref = fcRef(padre);
+    var chip = f == null ? '<span class="cx-chip cx-g">Sin ventas</span>' : '<span class="cx-chip ' + claseFc(f) + '">' + pc(f) + '</span>';
+    return '<button type="button" class="cx-nf" data-k="' + esc(r.key) + '">' +
+      '<div><b>' + esc(r.nombre) + '</b><small>' + r.n + (r.n === 1 ? ' producto' : ' productos') + ' · ' + corto(r.venta) + ' en ventas por semana' + (r.inc ? ' · ' + r.inc + ' sin costo completo' : '') + '</small></div>' +
+      '<div class="cx-nf-bar">' + (f == null ? '<span class="cx-mut">Sin ventas en 13 semanas</span>' : barraFc(f, ref)) + '</div>' +
+      '<div class="cx-nf-fc">' + chip + '<small>' + (f != null && ref != null ? ppTxt(f - ref) + ' vs ' + esc(padreNombre) : '') + '</small>' +
+      (r.fcSimple != null ? '<small>Promedio del menú ' + pc(r.fcSimple) + '</small>' : '') + '</div>' +
+      '<div class="cx-nf-m"><b>' + corto(r.margen) + '</b><small>margen por semana · ' + pc(r.share, 0) + ' del total</small></div></button>';
+  }
+
+  function filaProd(x, ref, refNombre) {
+    var chip = x.ok ? '<span class="cx-chip ' + claseFc(x.f) + '">' + pc(x.f) + '</span>' : '<span class="cx-chip cx-g">' + (x.at ? 'Revisar precio' : 'Costo incompleto') + '</span>';
+    return '<button type="button" class="cx-nf" data-k="' + esc(x.i) + '">' +
+      '<div><b>' + esc(x.n) + '</b><small>' + (x.u > 0 ? und(x.u) + ' por semana' : 'Sin ventas en 13 semanas') + (x.cl && CL[x.cl] ? ' · ' + CL[x.cl] : '') + '</small></div>' +
+      '<div class="cx-nf-bar">' + (x.ok ? barraFc(x.f, ref) : '<span class="cx-mut">Faltan insumos con costo</span>') + '</div>' +
+      '<div class="cx-nf-fc">' + chip + '<small>' + (x.ok && ref != null ? ppTxt(x.f - ref) + ' vs ' + esc(refNombre) : '') + '</small></div>' +
+      '<div class="cx-nf-m">' + (x.ok ? '<b>' + corto(x.k) + '</b><small>margen por semana · ' + pesos(x.m) + ' por unidad</small>' : '<b>—</b>') + '</div></button>';
+  }
+
+  function pintarAnalisis() {
+    if (!D || D.vacio) return;
+    var cont = $('cx-analisis');
+    var sc = alcance();
+    var h = migas();
+    var N = RUTA.length;
+    if (N === 3) { cont.innerHTML = h + '<div id="cx-an-prod"></div>'; pintarProducto(RUTA[2], sc); return; }
+
+    var padreAgg, padreNombre, titulo, desc;
+    if (N === 0) {
+      padreAgg = agg(sc.todo); padreNombre = 'el restaurante';
+      titulo = 'Todo el restaurante'; desc = 'Promedio general. Toca un área para ver sus grupos.';
+      h += resumenHtml(titulo, desc, padreAgg);
+      var m = {};
+      sc.todo.forEach(function (x) { (m[x.a] = m[x.a] || []).push(x); });
+      var filas = Object.keys(m).map(function (k) { var a = agg(m[k]); a.key = k; a.nombre = k; a.share = padreAgg.margen > 0 ? a.margen / padreAgg.margen : 0; return a; });
+      h += '<div class="panel"><h2>Por área</h2><p class="sub">Food cost real de cada área frente al del restaurante. Toca un área para entrar.</p>' + selOrden() +
+        ordenAgg(filas).map(function (r) { return filaAgg(r, padreAgg, padreNombre); }).join('') + '</div>';
+    } else if (N === 1) {
+      var ra = agg(sc.todo);
+      padreAgg = agg(sc.area); padreNombre = RUTA[0];
+      h += resumenHtml(RUTA[0], 'Promedio del área. Toca un grupo para ver sus productos.', padreAgg, 'el restaurante', ra);
+      var g = {};
+      sc.area.forEach(function (x) { (g[x.g] = g[x.g] || []).push(x); });
+      var fg = Object.keys(g).map(function (k) { var a = agg(g[k]); a.key = k; a.nombre = bonito(k); a.share = padreAgg.margen > 0 ? a.margen / padreAgg.margen : 0; return a; });
+      h += '<div class="panel"><h2>Grupos de ' + esc(RUTA[0]) + '</h2><p class="sub">Cada grupo frente al promedio de ' + esc(RUTA[0]) + '. Toca uno para ver sus productos.</p>' + selOrden() +
+        ordenAgg(fg).map(function (r) { return filaAgg(r, padreAgg, RUTA[0]); }).join('') + '</div>';
+    } else {
+      var aa = agg(sc.area);
+      padreAgg = agg(sc.grupo); padreNombre = bonito(RUTA[1]);
+      h += resumenHtml(bonito(RUTA[1]), 'Promedio del grupo dentro de ' + RUTA[0] + '. Toca un producto para ver cómo se compone su costo.', padreAgg, RUTA[0], aa);
+      var ref = fcRef(padreAgg);
+      var prods = sc.grupo.slice().sort({
+        margen: function (a, b) { return (b.ok ? b.k : -1) - (a.ok ? a.k : -1); },
+        fc: function (a, b) { return (b.ok ? b.f : -1) - (a.ok ? a.f : -1); },
+        venta: function (a, b) { return b.u - a.u; },
+        nombre: function (a, b) { return a.n.localeCompare(b.n, 'es'); }
+      }[ORD_AN]);
+      h += '<div class="panel"><h2>Productos de ' + esc(bonito(RUTA[1])) + '</h2><p class="sub">Cada producto frente al promedio del grupo. Toca uno para ver su detalle.</p>' + selOrden() +
+        prods.map(function (x) { return filaProd(x, ref, bonito(RUTA[1])); }).join('') + '</div>';
+    }
+    h += '<p class="nota">Food cost = costo ÷ precio sin impoconsumo. “Real” pondera por lo que se vende; “promedio del menú” cuenta cada producto una sola vez. Ventas de las últimas 13 semanas.</p>';
+    cont.innerHTML = h;
+    var so = $('cx-an-orden');
+    if (so) so.onchange = function (e) { ORD_AN = e.target.value; pintarAnalisis(); };
+  }
+
+  $('cx-analisis').onclick = function (e) {
+    var m = e.target.closest('.cx-mig button[data-n]');
+    if (m) { RUTA = RUTA.slice(0, +m.dataset.n); pintarAnalisis(); return; }
+    var f = e.target.closest('.cx-nf');
+    if (f) {
+      RUTA.push(f.dataset.k);
+      pintarAnalisis();
+      var y = $('cx-analisis').getBoundingClientRect().top + window.pageYOffset - 80;
+      if (window.pageYOffset > y) window.scrollTo(0, Math.max(y, 0));
+    }
+  };
+
+  /* ---------- Producto: costo ilustrado ---------- */
+  function escalaHtml(x, g, a) {
+    var pos = function (v) { return (Math.min(Math.max(v / ESC_MAX, 0), 1) * 100).toFixed(1); };
+    var marcas = [
+      { t: 'Este producto', v: x.f, c: '#6E682C', k: 'plato' },
+      { t: 'Promedio del grupo', v: fcRef(g), c: '#2E2B1C', k: 'tick' },
+      { t: 'Promedio del área', v: fcRef(a), c: '#9C9680', k: 'tick area' },
+      { t: 'Meta', v: D.objetivo.verde, c: '#2F7A55', k: 'tick meta' }
+    ].filter(function (m) { return m.v != null; });
+    var ticks = [0, 0.15, 0.3, 0.45, 0.6].map(function (v) { return '<span class="tk" style="left:' + pos(v) + '%">' + pc(v, 0) + '</span>'; }).join('');
+    return '<div class="tx-esc" role="img" aria-label="Food cost del producto frente a promedios y meta"><div class="eje"></div>' + ticks +
+      marcas.map(function (m) { return '<span class="pt ' + m.k + '" style="left:' + pos(m.v) + '%" title="' + m.t + '"></span>'; }).join('') + '</div>' +
+      '<div class="tx-esc-ley">' + marcas.map(function (m) {
+        return '<div><i style="background:' + m.c + '"></i><span>' + m.t + '</span><b>' + pc(m.v) + '</b></div>';
+      }).join('') + '</div>';
+  }
+
+  function pintarProducto(id, sc) {
+    var x = D.productos.filter(function (p) { return p.i === id; })[0];
+    var cont = $('cx-an-prod');
+    if (!x) { RUTA.pop(); pintarAnalisis(); return; }
+    var g = agg(sc.grupo), a = agg(sc.area);
+    var impo = Math.max(x.pv - x.p, 0);
+    var dato = function (t, v) { return '<div><small>' + t + '</small><b>' + v + '</b></div>'; };
+    var h = '<div class="panel cx-res"><h2>' + esc(x.n) + '</h2><p class="sub" style="margin-bottom:10px">' + esc(RUTA[0]) + ' › ' + esc(bonito(RUTA[1])) + (x.cl && CL[x.cl] ? ' · ' + CL[x.cl] : '') + '</p>' +
+      '<div class="tx-datos">' + dato('Precio en carta', pesos(x.pv)) + dato('Impoconsumo', pesos(impo)) + dato('Costo', pesos(x.c) + (x.ok ? '' : ' + ?')) + dato('Margen por unidad', x.ok ? pesos(x.m) : '—') + '</div>';
+    if (x.d != null && Math.abs(x.d) >= 0.02) {
+      h += '<p class="cx-sub2" style="margin:10px 0 0">El costo ' + (x.d > 0 ? 'subió ' : 'bajó ') + pc(Math.abs(x.d), 0) + ' frente al ' + fechaTxt(D.fechas.previa) + '.</p>';
+    }
+    h += '<div id="cx-an-det"><div class="cx-vacio">Calculando de dónde sale el costo…</div></div></div>';
+
+    if (x.ok) {
+      h += '<div class="panel cx-res"><h2>Frente a los promedios</h2><p class="sub">Food cost del producto comparado con su grupo, su área y la meta. Verde: dentro de la meta.</p>' + escalaHtml(x, g, a) +
+        '<p class="tx-frase" style="margin-bottom:0">' + (fcRef(g) != null ? 'Está <b>' + ppTxt(x.f - fcRef(g)) + '</b> frente al promedio de ' + esc(bonito(RUTA[1])) + (fcRef(a) != null ? ' y <b>' + ppTxt(x.f - fcRef(a)) + '</b> frente al de ' + esc(RUTA[0]) : '') + '.' : '') + '</p></div>';
+      var hermanos = sc.grupo.filter(function (p) { return p.ok; });
+      var pm = hermanos.slice().sort(function (p, q) { return q.k - p.k; }).map(function (p) { return p.i; }).indexOf(id) + 1;
+      var pf = hermanos.slice().sort(function (p, q) { return p.f - q.f; }).map(function (p) { return p.i; }).indexOf(id) + 1;
+      var pu = hermanos.slice().sort(function (p, q) { return q.u - p.u; }).map(function (p) { return p.i; }).indexOf(id) + 1;
+      var tot = hermanos.length;
+      h += '<div class="panel cx-res"><h2>Dónde queda en ' + esc(bonito(RUTA[1])) + '</h2><p class="sub">Posición entre los ' + tot + ' productos del grupo con costo completo.</p>' +
+        '<div class="tx-rank"><div><b>#' + pm + ' de ' + tot + '</b><span>por margen semanal (' + corto(x.k) + ')</span></div>' +
+        '<div><b>#' + pu + ' de ' + tot + '</b><span>en ventas (' + (x.u > 0 ? und(x.u) + ' por semana' : 'sin ventas') + ')</span></div>' +
+        '<div><b>#' + pf + ' de ' + tot + '</b><span>en food cost más bajo (' + pc(x.f) + ')</span></div></div></div>';
+    }
+    h += '<div style="margin-bottom:14px"><button type="button" class="cx-btn" id="cx-an-ficha">Ver receta completa y ficha técnica</button></div>';
+    cont.innerHTML = h;
+    $('cx-an-ficha').onclick = function () { abrirFicha(id); };
+    cargarDetalle(id);
+  }
+
+  function cargarDetalle(id) {
+    var poner = function (det, err) {
+      var el = $('cx-an-det');
+      if (!el || RUTA[2] !== id) return;
+      el.innerHTML = err ? '<div class="cx-vacio">No se pudo leer la receta: ' + esc(err) + '</div>' : det ? pilaHtml(det, { todos: true }) : '<div class="cx-vacio">Este producto no tiene receta.</div>';
+    };
+    if (DET[id]) { poner(DET[id]); return; }
+    google.script.run
+      .withSuccessHandler(function (d) { DET[id] = d; poner(d); })
+      .withFailureHandler(function (e) { poner(null, e && e.message); })
+      .getFichaPlato(id);
+  }
+
+  /* ---------- Pila de costo (también la usan las fichas) ---------- */
+  function pilaHtml(det, opts) {
+    opts = opts || {};
+    var p = det.p;
+    if (!(p > 0)) return '';
+    var conocidas = det.lineas.filter(function (l) { return l.s != null && l.s > 0; }).sort(function (a, b) { return b.s - a.s; });
+    var segs = conocidas.slice(0, 5).map(function (l, i) { return { n: limpio(l.n), v: l.s, c: PAL[i] }; });
+    var resto = conocidas.slice(5);
+    if (resto.length) segs.push({ n: 'Otros ingredientes (' + resto.length + ')', v: resto.reduce(function (s, l) { return s + l.s; }, 0), c: '#B3AA8C' });
+    var costo = conocidas.reduce(function (s, l) { return s + l.s; }, 0);
+    var completo = det.m != null;
+    var margen = completo ? det.m : Math.max(p - costo, 0);
+    var total = Math.max(p, costo);
+    var w = function (v) { return (v / total * 100).toFixed(2); };
+    var barra = segs.map(function (s) { return '<i style="width:' + w(s.v) + '%;background:' + s.c + '" title="' + esc(s.n) + ': ' + pesos(s.v) + '"></i>'; }).join('') +
+      (margen > 0 ? '<i class="' + (completo ? 'tx-mg' : 'tx-nd') + '" style="width:' + w(margen) + '%" title="' + (completo ? 'Margen' : 'Sin costo conocido') + ': ' + pesos(margen) + '"></i>' : '');
+    var fila = function (color, nombre, v, extra) {
+      return '<li><i style="background:' + color + '"></i><span>' + nombre + '</span><b>' + pesos(v) + '</b><em>' + (v / p * 100).toFixed(1).replace('.', ',') + '%' + (extra || '') + '</em></li>';
+    };
+    var ley = segs.map(function (s) { return fila(s.c, esc(s.n), s.v); }).join('') +
+      (margen > 0 ? (completo ? fila('#A9CFAE', '<b>Margen</b>', margen) : fila('#DDD4B9', 'Sin costo conocido', margen)) : '');
+    var frase;
+    if (!completo && det.x) frase = 'Faltan <b>' + det.x + '</b> ingredientes sin costo, así que el costo real es mayor al mostrado.';
+    else if (costo > p) frase = 'El costo <b>supera</b> el precio de venta sin impoconsumo: este producto pierde dinero.';
+    else frase = 'De cada $100 que vendes (sin impoconsumo), <b>$' + (costo / p * 100).toFixed(1).replace('.', ',') + '</b> se van en costo y <b>$' + (margen / p * 100).toFixed(1).replace('.', ',') + '</b> quedan de margen.';
+    var todos = '';
+    if (opts.todos && det.lineas.length > 1) {
+      todos = '<details class="tx-todos"><summary>Ver los ' + det.lineas.length + ' ingredientes</summary><div class="scroll"><table><thead><tr><th>Ingrediente</th><th class="num">Cantidad</th><th class="num">Costo por unidad</th><th class="num">Subtotal</th><th class="num">% del precio</th></tr></thead><tbody>' +
+        det.lineas.map(function (l) {
+          return '<tr><td>' + esc(limpio(l.n)) + '</td><td class="num">' + und(l.c) + ' ' + esc(l.u) + '</td>' +
+            (l.cu != null ? '<td class="num">' + pesos(l.cu) + '</td><td class="num"><b>' + pesos(l.s) + '</b></td><td class="num">' + (l.s / p * 100).toFixed(1).replace('.', ',') + '%</td>' : '<td class="num" colspan="3" style="color:#9C3A22;font-weight:700">Sin costo</td>') + '</tr>';
+        }).join('') + '</tbody></table></div></details>';
+    }
+    return '<div class="tx-viz"><h4>¿A dónde va cada peso del precio?</h4><p class="tx-p">Precio de venta sin impoconsumo: <b>' + pesos(p) + '</b></p>' +
+      '<div class="tx-pila" role="img" aria-label="Reparto del precio entre ingredientes y margen">' + barra + '</div>' +
+      '<p class="tx-frase">' + frase + '</p><ul class="tx-ley">' + ley + '</ul>' + todos + '</div>';
+  }
+  window.TaxcoViz = { pila: pilaHtml };
+
+  /* ---------- Ficha del plato ---------- */
+  function cerrarFicha() { $('cx-ficha').style.display = 'none'; document.body.style.overflow = ''; }
+  $('cx-ficha').addEventListener('click', function (e) { if (e.target === $('cx-ficha')) cerrarFicha(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarFicha(); });
+
+  function abrirFicha(id) {
+    var caja = $('cx-ficha-caja');
+    $('cx-ficha').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    caja.innerHTML = '<div class="cx-vacio">Abriendo receta…</div>';
+    google.script.run
+      .withSuccessHandler(function (f) { pintarFicha(f, id); })
+      .withFailureHandler(function (e) {
+        caja.innerHTML = '<div class="cx-cab"><div><h3>No se pudo abrir</h3><p class="cx-sub">' + esc(e && e.message) + '</p></div>' +
+          '<button type="button" class="cx-cerrar" aria-label="Cerrar">×</button></div>';
+        caja.querySelector('.cx-cerrar').onclick = cerrarFicha;
+      })
+      .getFichaPlato(id);
+  }
+
+  function pintarFicha(f, id) {
+    var caja = $('cx-ficha-caja');
+    if (!f) { caja.innerHTML = '<div class="cx-vacio">Este producto no tiene receta.</div>'; return; }
+    var x = D.productos.filter(function (p) { return p.i === id; })[0] || {};
+    var cuerpo = f.lineas.map(function (l) {
+      var parte = l.s != null && f.c > 0 ? l.s / f.c : 0;
+      return '<tr><td>' + esc(l.n) + '</td><td class="num">' + und(l.c) + ' ' + esc(l.u) + '</td>' +
+        (l.cu != null ? '<td class="num">' + pesos(l.cu) + '</td><td class="num"><b>' + pesos(l.s) + '</b></td>' +
+          '<td><div class="cx-barrita"><i style="width:' + Math.min(100, Math.round(parte * 100)) + '%"></i></div></td>'
+          : '<td class="num cx-falta" colspan="2">Sin costo</td><td></td>') + '</tr>';
+    }).join('');
+    var met = function (t, v) { return '<div><small>' + t + '</small><b>' + v + '</b></div>'; };
+    var h = '<div class="cx-cab"><div><h3 id="cx-ficha-titulo">' + esc(f.n) + '</h3><p class="cx-sub">' + esc(f.g) + ' · ID ' + esc(f.i) +
+      (x.cl && CL[x.cl] ? ' · ' + CL[x.cl] : '') + '</p></div><button type="button" class="cx-cerrar" aria-label="Cerrar">×</button></div>';
+    h += '<div class="cx-met">' +
+      met('Precio sin IPO', pesos(f.p)) +
+      met('Costo', pesos(f.c) + (f.x ? ' + ?' : '')) +
+      met('Margen', f.m != null ? pesos(f.m) : '—') +
+      met('Food cost', f.f != null ? '<span class="cx-chip ' + claseFc(f.f) + '">' + pc(f.f) + '</span>' : '—') + '</div>';
+    if (x.u != null) {
+      h += '<p class="cx-sub" style="margin:-4px 0 4px">' + (x.u > 0 ? 'Se venden unas ' + und(x.u) + ' por semana' + (x.ok ? ', unos ' + corto(x.k) + ' de margen semanal' : '') + '.' : 'Sin ventas en las últimas 13 semanas.') + '</p>';
+    }
+    if (f.x) h += '<p class="cx-falta" style="font-size:13px;margin:6px 0 0">Faltan ' + f.x + ' insumos sin costo; el costo real es mayor al mostrado.</p>';
+    h += pilaHtml(f);
+    h += '<h4>Receta y costo por ingrediente</h4><div class="cx-scroll"><table><thead><tr><th>Ingrediente</th><th class="num">Cantidad</th><th class="num">Costo por unidad</th><th class="num">Subtotal</th><th>% del costo</th></tr></thead><tbody>' + cuerpo + '</tbody></table></div>';
+
+    var fi = f.ficha;
+    h += '<h4>Ficha técnica</h4>';
+    if (fi) {
+      var bloque = function (t, v) { return v ? '<div class="cx-et">' + t + '</div><p class="cx-texto">' + esc(v) + '</p>' : ''; };
+      h += '<div id="cx-fotoslot"></div>' +
+        bloque('Porciones', fi.porciones) + bloque('Cristalería', fi.cristaleria) + bloque('Método', fi.metodo) + bloque('Hielo', fi.hielo) +
+        bloque('Preparación', fi.preparacion) + bloque('Emplatado', fi.emplatado) + bloque('Guarnición', fi.guarnicion) +
+        bloque('Alérgenos', fi.alergenos) + bloque('Merma', fi.merma) + bloque('Vida útil', fi.vida) + bloque('Notas', fi.notas);
+    } else {
+      h += '<p class="cx-sub">Aún no tiene ficha.</p>';
+    }
+    if (window.TaxcoBiblia) {
+      h += '<div style="margin-top:14px"><button type="button" class="cx-btn" id="cx-editar-ficha">' + (fi ? 'Editar ficha en la biblia' : 'Llenar ficha en la biblia') + '</button></div>';
+    }
+    caja.innerHTML = h;
+    caja.querySelector('.cx-cerrar').onclick = cerrarFicha;
+    caja.scrollTop = 0;
+    var eb = $('cx-editar-ficha');
+    if (eb) eb.onclick = function () { cerrarFicha(); window.TaxcoBiblia.abrir(id, 'ver'); };
+    if (fi && fi.tieneFoto) {
+      google.script.run.withSuccessHandler(function (src) {
+        var slot = $('cx-fotoslot');
+        if (src && slot) slot.innerHTML = '<img src="' + src + '" alt="" style="max-width:100%;border-radius:12px;margin-bottom:8px">';
+      }).getFotoFicha(id);
+    }
+  }
+})();
+</script>
+

@@ -1,0 +1,780 @@
+<!-- ============================================================
+  BIBLIAS TAXCO — pestañas "Biblia cocina" y "Biblia barra" (v1.2)
+  Archivo HTML nuevo llamado exactamente "Biblia" dentro del proyecto.
+  doGet() (en Costeo.gs) lo agrega al final de la página, igual que Costeo.
+  Cada ficha se guarda en la pestaña FICHAS; las fotos, en Drive.
+============================================================= -->
+<style>
+  #vista-biblia .bb-res { margin-bottom: 14px; }
+  #vista-biblia .bb-res-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  #vista-biblia .bb-res-top b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  #vista-biblia .bb-res-top span { font-size: 13px; color: var(--muted, #7B7560); font-weight: 600; }
+  #vista-biblia .bb-prog { height: 8px; background: #EEE7D2; border-radius: 4px; margin: 10px 0 14px; overflow: hidden; }
+  #vista-biblia .bb-prog i { display: block; height: 8px; border-radius: 4px; background: var(--naranja, #6E682C); }
+  #vista-biblia .bb-estados { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  #vista-biblia .bb-est { text-align: left; font: inherit; cursor: pointer; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--line, #E6DEC6); background: var(--panel, #fff); color: var(--ink, #2E2B1C); }
+  #vista-biblia .bb-est.activo { border-color: var(--naranja, #6E682C); background: var(--naranja-suave, #F1ECD6); }
+  #vista-biblia .bb-est:focus-visible, #vista-biblia .bb-fila:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  #vista-biblia .bb-est b { display: block; font-size: 22px; font-weight: 800; }
+  #vista-biblia .bb-est span { display: block; font-size: 13px; font-weight: 700; margin-top: 2px; }
+  #vista-biblia .bb-est em { display: block; font-style: normal; font-size: 12px; color: var(--muted, #7B7560); margin-top: 3px; }
+
+  #vista-biblia .bb-nav { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+  #vista-biblia .bb-nav b { font-size: 17px; font-weight: 800; }
+  #vista-biblia .bb-nav span { font-size: 13px; color: var(--muted, #7B7560); font-weight: 600; }
+  #vista-biblia .bb-macro { margin: 18px 0 8px; font-size: 14px; font-weight: 800; }
+  #vista-biblia .bb-macro:first-child { margin-top: 4px; }
+  #vista-biblia .bb-grupos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  #vista-biblia .bb-grupo { text-align: left; font: inherit; cursor: pointer; padding: 14px 16px; border-radius: 12px;
+    border: 1px solid var(--line, #E6DEC6); background: var(--panel, #fff); color: var(--ink, #2E2B1C); }
+  #vista-biblia .bb-grupo:hover { background: var(--naranja-suave, #F1ECD6); border-color: var(--naranja-3, #D9D2A6); }
+  #vista-biblia .bb-grupo:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  #vista-biblia .bb-grupo b { display: block; font-size: 15px; font-weight: 800; line-height: 1.25; }
+  #vista-biblia .bb-grupo span { display: block; font-size: 12px; color: var(--muted, #7B7560); margin-top: 4px; font-weight: 600; }
+  #vista-biblia .bb-grupo .bb-mini { height: 5px; background: #EEE7D2; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  #vista-biblia .bb-grupo .bb-mini i { display: block; height: 5px; border-radius: 3px; background: var(--naranja, #6E682C); }
+  #vista-biblia .bb-grupo.listo .bb-mini i { background: #2F7A55; }
+
+  #vista-biblia .bb-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; align-items: center; }
+  #vista-biblia .bb-tools input[type="search"], #vista-biblia .bb-tools select { font: inherit; font-size: 16px; font-weight: 600; color: var(--ink, #2E2B1C);
+    padding: 9px 12px; border: 1px solid var(--line, #E6DEC6); border-radius: 10px; background-color: var(--panel, #fff); }
+  #vista-biblia .bb-tools input[type="search"] { flex: 1; min-width: 170px; font-weight: 500; }
+  #vista-biblia .bb-tools label { font-size: 13px; font-weight: 600; color: var(--muted, #7B7560); display: inline-flex; gap: 6px; align-items: center; }
+  #vista-biblia .bb-tools input:focus-visible, #vista-biblia .bb-tools select:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+
+  #vista-biblia .bb-fila { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; text-align: left; font: inherit; cursor: pointer;
+    padding: 12px 6px; border: 0; border-top: 1px solid var(--line, #E6DEC6); background: none; color: var(--ink, #2E2B1C); }
+  #vista-biblia .bb-fila:first-child { border-top: 0; }
+  #vista-biblia .bb-fila:hover { background: var(--naranja-suave, #F1ECD6); }
+  #vista-biblia .bb-info { min-width: 0; }
+  #vista-biblia .bb-nom { font-size: 14px; font-weight: 700; line-height: 1.25; }
+  #vista-biblia .bb-sub { font-size: 12px; color: var(--muted, #7B7560); margin-top: 3px; line-height: 1.35; }
+  #vista-biblia .bb-mas { margin: 12px auto 0; display: block; }
+  #vista-biblia .bb-mas[hidden] { display: none; }
+  #vista-biblia .bb-vacio { padding: 22px 8px; text-align: center; color: var(--muted, #7B7560); font-size: 13px; }
+
+  .bb-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; flex: none; }
+  .bb-v { background: #E2EDDF; color: #2A6B48; }
+  .bb-a { background: #FFF0D6; color: #9A6200; }
+  .bb-r { background: #F5E1D8; color: #9C3A22; }
+  .bb-g { background: #ECE5CF; color: #7B7560; }
+  .bb-btn { font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; padding: 10px 16px; border-radius: 10px;
+    border: 1px solid var(--line, #E6DEC6); background: var(--panel, #fff); color: var(--ink, #2E2B1C); }
+  .bb-btn.pri { background: var(--naranja, #6E682C); border-color: var(--naranja, #6E682C); color: #fff; }
+  .bb-btn:disabled { opacity: .55; cursor: default; }
+  .bb-btn:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+
+  /* Ficha (ventana superpuesta) */
+  .bb-hoja { position: fixed; inset: 0; z-index: 60; display: none; align-items: flex-end; justify-content: center; background: rgba(46, 43, 28, .45); }
+  .bb-hoja .bb-caja { width: 100%; max-width: 780px; max-height: 94vh; overflow-y: auto; -webkit-overflow-scrolling: touch; position: relative;
+    background: var(--panel, #fff); border-radius: 18px 18px 0 0; padding: 20px 22px 0;
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif; color: var(--ink, #2E2B1C); }
+  .bb-hoja .bb-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .bb-hoja h3 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+  .bb-hoja .bb-sub2 { margin: 4px 0 0; font-size: 13px; color: var(--muted, #7B7560); }
+  .bb-hoja .bb-cerrar { font: inherit; font-size: 22px; line-height: 1; cursor: pointer; border: 0; background: var(--bg, #F4EFE1); border-radius: 10px; width: 40px; height: 40px; flex: none; color: var(--ink, #2E2B1C); }
+  .bb-hoja .bb-cerrar:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  .bb-hoja .bb-met { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .bb-hoja .bb-met div { background: var(--bg, #F4EFE1); border-radius: 12px; padding: 10px 12px; }
+  .bb-hoja .bb-met small { display: block; font-size: 11px; color: var(--muted, #7B7560); font-weight: 600; }
+  .bb-hoja .bb-met b { display: block; font-size: 16px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
+  .bb-hoja h4 { margin: 18px 0 8px; font-size: 14px; font-weight: 800; }
+  .bb-hoja .bb-scroll { overflow-x: auto; }
+  .bb-hoja table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 420px; }
+  .bb-hoja th { text-align: left; font-size: 11px; color: var(--muted, #7B7560); font-weight: 600; padding: 0 6px 8px; }
+  .bb-hoja td { padding: 8px 6px; border-top: 1px solid var(--line, #E6DEC6); }
+  .bb-hoja td.num, .bb-hoja th.num { text-align: right; white-space: nowrap; }
+  .bb-hoja .bb-falta { color: #9C3A22; font-weight: 700; }
+  .bb-hoja .bb-et { font-size: 12px; font-weight: 700; color: var(--muted, #7B7560); margin: 14px 0 3px; }
+  .bb-hoja .bb-txt { font-size: 15px; line-height: 1.55; white-space: pre-wrap; margin: 0; }
+  .bb-hoja ol.bb-pasos { margin: 0; padding-left: 22px; font-size: 15px; line-height: 1.55; }
+  .bb-hoja ol.bb-pasos li { margin: 0 0 6px; padding-left: 4px; }
+  .bb-hoja .bb-datos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 18px; }
+  .bb-hoja .bb-foto { width: 100%; max-height: 420px; object-fit: contain; border-radius: 14px; margin-bottom: 4px; background: var(--bg, #F4EFE1); }
+  .bb-hoja .bb-foto-vacia { height: 120px; border-radius: 14px; background: var(--bg, #F4EFE1); display: grid; place-items: center; color: var(--muted, #7B7560); font-size: 13px; }
+  .bb-hoja .bb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bb-hoja .bb-pie { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; margin: 18px -22px 0; padding: 12px 22px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: var(--panel, #fff); border-top: 1px solid var(--line, #E6DEC6); }
+  .bb-hoja .bb-pie .bb-btn { flex: 1; min-width: 120px; }
+  .bb-hoja .bb-error { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: #F5E1D8; color: #9C3A22; font-size: 13px; font-weight: 600; }
+
+  /* Formulario */
+  .bb-hoja .bb-campo { margin: 0 0 14px; }
+  .bb-hoja .bb-campo > label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+  .bb-hoja .bb-campo > label small { font-weight: 500; color: var(--muted, #7B7560); }
+  .bb-hoja .bb-campo input, .bb-hoja .bb-campo textarea { width: 100%; font: inherit; font-size: 16px; color: var(--ink, #2E2B1C);
+    padding: 10px 12px; border: 1px solid var(--line, #E6DEC6); border-radius: 10px; background: var(--panel, #fff); }
+  .bb-hoja .bb-campo textarea { resize: vertical; line-height: 1.5; }
+  .bb-hoja .bb-campo input:focus-visible, .bb-hoja .bb-campo textarea:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 1px; border-color: var(--naranja, #6E682C); }
+  .bb-hoja .bb-dos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 14px; }
+  .bb-hoja .bb-alg { display: flex; flex-wrap: wrap; gap: 8px; }
+  .bb-hoja .bb-alg button { font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--line, #E6DEC6); background: var(--panel, #fff); color: var(--muted, #7B7560); }
+  .bb-hoja .bb-alg button[aria-pressed="true"] { background: var(--ink, #2E2B1C); border-color: var(--ink, #2E2B1C); color: #fff; }
+  .bb-hoja .bb-alg button:focus-visible { outline: 2px solid var(--naranja, #6E682C); outline-offset: 2px; }
+  .bb-hoja details.bb-ref { background: var(--bg, #F4EFE1); border-radius: 12px; padding: 10px 12px; margin: 0 0 16px; font-size: 13px; }
+  .bb-hoja details.bb-ref summary { cursor: pointer; font-weight: 700; }
+  .bb-hoja details.bb-ref p { margin: 8px 0 0; line-height: 1.5; color: var(--muted, #7B7560); }
+  .bb-hoja .bb-fotoform { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .bb-hoja .bb-fotoform img { width: 120px; height: 90px; object-fit: cover; border-radius: 10px; background: var(--bg, #F4EFE1); }
+  .bb-hoja input[type="file"] { display: none; }
+
+  #bb-toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 80; display: none;
+    background: var(--ink, #2E2B1C); color: #fff; font-family: 'Manrope', system-ui, sans-serif; font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 999px; }
+
+  @media (max-width: 900px) { #vista-biblia .bb-grupos { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) {
+    #vista-biblia .bb-estados, #vista-biblia .bb-grupos { grid-template-columns: 1fr; }
+    .bb-hoja .bb-met { grid-template-columns: repeat(2, 1fr); }
+    .bb-hoja .bb-dos, .bb-hoja .bb-datos { grid-template-columns: 1fr; }
+  }
+  @media (min-width: 900px) { .bb-hoja { align-items: center; } .bb-hoja .bb-caja { border-radius: 18px; } }
+</style>
+
+<div id="vista-biblia" hidden>
+  <div class="estado" id="bb-estado"><b>Cargando biblia…</b>Leyendo recetas, costos y fichas.</div>
+  <div id="bb-cuerpo" hidden>
+    <div class="panel bb-res">
+      <div class="bb-res-top"><b id="bb-avance"></b><span id="bb-avance-txt"></span></div>
+      <div class="bb-prog"><i id="bb-barra" style="width:0"></i></div>
+      <div class="bb-estados" id="bb-estados"></div>
+    </div>
+    <div class="panel">
+      <div class="bb-tools">
+        <input id="bb-busca" type="search" placeholder="Buscar producto…" aria-label="Buscar producto">
+        <select id="bb-orden" aria-label="Ordenar por">
+          <option value="und">Más vendidos primero</option>
+          <option value="nombre">Nombre A–Z</option>
+          <option value="grupo">Por grupo</option>
+        </select>
+        <label id="bb-simples-et" style="display:none"><input type="checkbox" id="bb-simples"> <span id="bb-simples-txt"></span></label>
+      </div>
+      <div class="bb-nav" id="bb-nav" style="display:none"><button type="button" class="bb-btn" id="bb-volver">← Todos los grupos</button><b id="bb-nav-t"></b><span id="bb-nav-p"></span></div>
+      <p class="sub" id="bb-sub" style="margin:0 0 10px"></p>
+      <div id="bb-lista"></div>
+      <button type="button" class="bb-btn bb-mas" id="bb-mas" hidden>Ver más</button>
+    </div>
+  </div>
+</div>
+
+<div class="bb-hoja" id="bb-ficha" role="dialog" aria-modal="true"><div class="bb-caja" id="bb-caja"></div></div>
+<div id="bb-toast" role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+  var vista = document.getElementById('vista-biblia');
+  if (!vista) return;
+
+  /* ---------- Utilidades ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  var pesos = function (v) { return '$' + Math.round(v).toLocaleString('es-CO'); };
+  var pc = function (v) { return (v * 100).toFixed(1).replace('.', ',') + '%'; };
+  var und = function (v) { return v >= 10 ? Math.round(v).toLocaleString('es-CO') : v.toFixed(1).replace('.', ','); };
+  var norm = function (s) { return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+
+  var ALERGENOS = ['Gluten', 'Lácteos', 'Huevo', 'Mariscos', 'Pescado', 'Frutos secos', 'Maní', 'Soya', 'Ajonjolí', 'Sulfitos', 'Alcohol', 'Ninguno'];
+  var OPCIONES = {
+    cristaleria: ['Vaso alto', 'Vaso bajo', 'Copa coupe', 'Copa de vino', 'Copa balón', 'Copa martini', 'Jarra', 'Cántaro', 'Mug', 'Shot', 'Tarro'],
+    metodo: ['Construido en el vaso', 'Agitado en shaker', 'Mezclado en mixing glass', 'Licuado', 'Batido en seco', 'Caliente'],
+    hielo: ['Cubos', 'Hielo grande', 'Esfera', 'Triturado', 'Sin hielo'],
+    tipo: ['Blanco', 'Reposado', 'Añejo', 'Extra añejo', 'Joven', 'Single malt', 'Blended', 'Bourbon', 'Seco', 'Dulce', 'Brut', 'Lager', 'Ale'],
+    servicio: ['Solo', 'En las rocas', 'Copa', 'Shot', 'Con mezclador', 'Frío', 'Botella']
+  };
+  var CAMPOS = {
+    Cocina: [
+      { k: 'porciones', t: 'Porciones o rendimiento', tipo: 'texto', ph: 'Ej. 1 plato · 350 g' },
+      { k: 'preparacion', t: 'Preparación paso a paso', ayuda: 'un paso por línea', tipo: 'area', filas: 7, ph: 'Escribe o dicta cada paso en una línea nueva' },
+      { k: 'emplatado', t: 'Emplatado', tipo: 'area', filas: 4, ph: 'Plato, orden de los elementos, decoración' },
+      { k: 'alergenos', t: 'Alérgenos', tipo: 'alergenos' },
+      { k: 'merma', t: 'Merma de la materia prima', ayuda: 'opcional', tipo: 'texto', ph: 'Ej. 15% al limpiar el pescado' },
+      { k: 'vida', t: 'Vida útil y conservación', ayuda: 'opcional', tipo: 'texto', ph: 'Ej. 2 días refrigerado' },
+      { k: 'notas', t: 'Notas', ayuda: 'opcional', tipo: 'area', filas: 3 }
+    ],
+    Botella: [
+      { k: 'origen', t: 'Marca, destilería y origen', tipo: 'texto', ph: 'Ej. Don Julio · Jalisco, México' },
+      { k: 'tipo', t: 'Tipo o añejamiento', tipo: 'lista', ph: 'Elige o escribe' },
+      { k: 'grados', t: 'Grados de alcohol', ayuda: 'opcional', tipo: 'texto', ph: 'Ej. 38%' },
+      { k: 'notacata', t: 'Notas de cata', ayuda: 'aroma, sabor y final', tipo: 'area', filas: 5, ph: 'Escribe o dicta cómo se siente y qué sabores tiene' },
+      { k: 'servicio', t: 'Servicio recomendado', tipo: 'lista', ph: 'Elige o escribe' },
+      { k: 'maridaje', t: 'Coctelería o maridaje sugerido', ayuda: 'opcional', tipo: 'texto', ph: 'Ej. Margarita, Paloma; carnes asadas' },
+      { k: 'notas', t: 'Notas', ayuda: 'opcional', tipo: 'area', filas: 3 }
+    ],
+    Barra: [
+      { k: 'cristaleria', t: 'Cristalería', tipo: 'lista', ph: 'Elige o escribe' },
+      { k: 'metodo', t: 'Método', tipo: 'lista', ph: 'Elige o escribe' },
+      { k: 'hielo', t: 'Hielo', tipo: 'lista', ph: 'Elige o escribe' },
+      { k: 'preparacion', t: 'Preparación paso a paso', ayuda: 'un paso por línea', tipo: 'area', filas: 6, ph: 'Escribe o dicta cada paso en una línea nueva' },
+      { k: 'guarnicion', t: 'Guarnición y decoración', ayuda: 'opcional', tipo: 'texto', ph: 'Ej. Rodaja de limón y sal en el borde' },
+      { k: 'alergenos', t: 'Alérgenos', tipo: 'alergenos' },
+      { k: 'notas', t: 'Notas', ayuda: 'opcional', tipo: 'area', filas: 3 }
+    ]
+  };
+  var ETIQUETAS = { porciones: 'Porciones', emplatado: 'Emplatado', merma: 'Merma', vida: 'Vida útil', cristaleria: 'Cristalería',
+    metodo: 'Método', hielo: 'Hielo', guarnicion: 'Guarnición', notas: 'Notas', origen: 'Marca y origen', tipo: 'Tipo',
+    grados: 'Grados de alcohol', servicio: 'Servicio recomendado', maridaje: 'Coctelería o maridaje' };
+
+  var AREA = 'Cocina', D = null, activo = false, cargando = false;
+  var ESTADO = '', BUSCA = '', GRUPO = '', ORDEN = 'und', SIMPLES = false, LIMITE = 40;
+  var cur = null;                 // { id, det, modo, foto: { nueva, quitar, vista } }
+  var borrador = {}, fotos = {};  // borradores sin guardar y fotos ya descargadas
+
+  /* ---------- Montaje en la página ---------- */
+  var main = document.querySelector('main.contenido') || document.querySelector('main') || document.body;
+  main.appendChild(vista);
+  document.body.appendChild($('bb-ficha'));
+  document.body.appendChild($('bb-toast'));
+
+  var menu = document.querySelector('.menu');
+  var controles = document.querySelector('.controles');
+  var periodoEl = $('periodo');
+  var mios = [];
+  function crearBoton(texto, area) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('data-vista', 'biblia-' + area.toLowerCase());
+    b.textContent = texto;
+    if (menu) menu.appendChild(b); else document.body.appendChild(b);
+    b.addEventListener('click', function () { abrirVista(area, b); });
+    mios.push(b);
+    return b;
+  }
+  crearBoton('Biblia cocina', 'Cocina');
+  crearBoton('Biblia barra', 'Barra');
+
+  function ocultar() {
+    activo = false;
+    vista.hidden = true;
+    if (controles) controles.style.display = '';
+  }
+  // En fase de captura: se oculta antes de que Ventas, Productos o Costeo se pinten
+  if (menu) menu.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b && mios.indexOf(b) < 0) ocultar();
+  }, true);
+
+  function fijarTitulos() {
+    var t = $('titulo'); if (t) t.textContent = AREA === 'Cocina' ? 'Biblia de cocina' : 'Biblia de barra';
+    if (periodoEl) periodoEl.textContent = AREA === 'Cocina'
+      ? 'Fichas técnicas de platos: preparación, emplatado y costo'
+      : 'Fichas técnicas de tragos: cristalería, método y costo';
+  }
+
+  function abrirVista(area, btn) {
+    var cambio = AREA !== area;
+    AREA = area; activo = true;
+    if (cambio) { ESTADO = ''; BUSCA = ''; $('bb-busca').value = ''; }
+    GRUPO = ''; LIMITE = 40;
+    ['tablero', 'vista-productos', 'vista-costeo'].forEach(function (id) { var e = $(id); if (e) e.hidden = true; });
+    document.querySelectorAll('.menu button').forEach(function (x) { x.classList.toggle('activo', x === btn); });
+    fijarTitulos();
+    if (controles) controles.style.display = 'none';
+    vista.hidden = false;
+    if (D && !D.vacio) pintar(); else if (!cargando) cargar();
+  }
+
+  // Si Ventas termina de cargar mientras se ve la biblia, no debe taparla
+  if (window.MutationObserver) {
+    var tab = $('tablero');
+    if (tab) new MutationObserver(function () { if (activo && !tab.hidden) tab.hidden = true; }).observe(tab, { attributes: true, attributeFilter: ['hidden'] });
+    if (periodoEl) new MutationObserver(function () {
+      if (!activo) return;
+      var t = AREA === 'Cocina' ? 'Fichas técnicas de platos: preparación, emplatado y costo' : 'Fichas técnicas de tragos: cristalería, método y costo';
+      if (periodoEl.textContent !== t) periodoEl.textContent = t;
+    }).observe(periodoEl, { childList: true, characterData: true, subtree: true });
+  }
+
+  /* ---------- Carga ---------- */
+  function estadoMsg(titulo, texto) {
+    var e = $('bb-estado');
+    e.hidden = false;
+    e.innerHTML = '<b>' + esc(titulo) + '</b>' + texto;
+    $('bb-cuerpo').hidden = true;
+  }
+
+  function cargar(despues) {
+    if (typeof google === 'undefined' || !google.script) return;
+    cargando = true;
+    estadoMsg('Cargando biblia…', 'Leyendo recetas, costos y fichas.');
+    google.script.run
+      .withSuccessHandler(function (d) {
+        cargando = false; D = d;
+        if (activo) pintar();
+        if (despues) despues();
+      })
+      .withFailureHandler(function (e) {
+        cargando = false;
+        estadoMsg('No se pudo leer la biblia', esc(e && e.message) + '. Revisa que Costeo.gs esté actualizado y ejecuta configurarBiblia.');
+      })
+      .getBiblia();
+  }
+
+  /* ---------- Estado de cada ficha ---------- */
+  // Tipo de ficha: platos (Cocina), tragos preparados (Barra) o botellas (licores, vinos y cervezas de un solo ingrediente)
+  var kindDeProd = function (a, ni) { return a === 'Barra' ? (ni >= 2 ? 'Barra' : 'Botella') : 'Cocina'; };
+  function estadoDe(x) {                // x: producto { i, a, ni }
+    var req = D.req[kindDeProd(x.a, x.ni)];
+    var f = D.fichas[x.i];
+    var n = f ? req.filter(function (k) { return f[k] && String(f[k]).trim(); }).length : 0;
+    return { k: n === 0 ? 'v' : (n === req.length ? 'c' : 'p'), n: n, t: req.length };
+  }
+
+  // Adiciones y bebidas sin licor no llevan biblia, salvo que se pida
+  var esExtra = function (x) { return /adicion|sin licor/.test(norm(x.g)); };
+  function delArea() {
+    return D.productos.filter(function (x) {
+      if (AREA === 'Cocina') return x.a === 'Cocina' || x.a === 'Postres';
+      if (x.a !== 'Barra') return false;
+      return SIMPLES || !esExtra(x);
+    });
+  }
+  var bonito = function (g) { g = String(g || 'Sin grupo').toLowerCase(); return g.charAt(0).toUpperCase() + g.slice(1); };
+  var esLicor = function (g) { return /aguardiente|ron|tequila|mezcal|vodka|ginebra|whisk|licor|espumos|vino|cerveza/.test(norm(g)); };
+
+  function ordenar(arr) {
+    var o = {
+      und: function (a, b) { return b.u - a.u || a.n.localeCompare(b.n, 'es'); },
+      nombre: function (a, b) { return a.n.localeCompare(b.n, 'es'); },
+      grupo: function (a, b) { return a.g.localeCompare(b.g, 'es') || a.n.localeCompare(b.n, 'es'); }
+    };
+    return arr.slice().sort(o[ORDEN]);
+  }
+
+  function filtrados() {
+    return ordenar(delArea().filter(function (x) {
+      if (ESTADO && estadoDe(x).k !== ESTADO) return false;
+      if (GRUPO && x.g !== GRUPO) return false;
+      if (BUSCA && norm(x.n + ' ' + x.g).indexOf(BUSCA) < 0) return false;
+      return true;
+    }));
+  }
+
+  /* ---------- Pintar la lista ---------- */
+  function pintar() {
+    $('bb-estado').hidden = true;
+    if (D.vacio) {
+      estadoMsg('Todavía no hay datos', 'Falta cargar: ' + esc(D.falta.join(', ')) + '. Sube los reportes a la carpeta COSTEO TAXCO y toca “Actualizar desde Drive” en la pestaña Costeo.');
+      return;
+    }
+    $('bb-cuerpo').hidden = false;
+    var extraN = D.productos.filter(function (x) { return x.a === 'Barra' && esExtra(x); }).length;
+    $('bb-simples-et').style.display = AREA === 'Barra' && extraN ? '' : 'none';   // (no usar hidden: el estilo de la etiqueta lo ignora)
+    $('bb-simples').checked = SIMPLES;
+    $('bb-simples-txt').textContent = 'Incluir adiciones y bebidas sin licor (' + extraN + ')';
+    $('bb-orden').value = ORDEN;
+    pintarResumen();
+    pintarLista();
+  }
+
+  function pintarResumen() {
+    var set = delArea();
+    var c = { v: 0, p: 0, c: 0 };
+    set.forEach(function (x) { c[estadoDe(x).k]++; });
+    var pct = set.length ? Math.round(c.c / set.length * 100) : 0;
+    $('bb-avance').textContent = c.c + ' de ' + set.length + ' fichas completas';
+    $('bb-avance-txt').textContent = pct + '% de la biblia de ' + (AREA === 'Cocina' ? 'cocina' : 'barra');
+    $('bb-barra').style.width = pct + '%';
+    var card = function (k, num, t, em) {
+      return '<button type="button" class="bb-est' + (ESTADO === k ? ' activo' : '') + '" data-e="' + k + '"><b>' + num + '</b><span>' + t + '</span><em>' + em + '</em></button>';
+    };
+    $('bb-estados').innerHTML =
+      card('v', c.v, 'Sin empezar', 'Aún no tienen ficha') +
+      card('p', c.p, 'En proceso', 'Les faltan datos') +
+      card('c', c.c, 'Completas', 'Listas para entrenar');
+  }
+
+  function chipEstado(e) {
+    return e.k === 'c' ? '<span class="bb-chip bb-v">Completa</span>'
+      : e.k === 'p' ? '<span class="bb-chip bb-a">' + e.n + ' de ' + e.t + '</span>'
+      : '<span class="bb-chip bb-g">Sin empezar</span>';
+  }
+
+  // Índice de grupos (México lindo, Parrilla, Tequilas…) con su avance; al tocar uno se ven sus productos
+  var modoIndice = function () { return !GRUPO && !BUSCA && !ESTADO; };
+
+  function pintarLista() {
+    var nav = $('bb-nav');
+    if (modoIndice()) { pintarIndice(); return; }
+    var f = filtrados();
+    var ver = f.slice(0, LIMITE);
+    if (GRUPO) {
+      var delGrupo = delArea().filter(function (x) { return x.g === GRUPO; });
+      var hechas = delGrupo.filter(function (x) { return estadoDe(x).k === 'c'; }).length;
+      nav.style.display = 'flex';
+      $('bb-nav-t').textContent = bonito(GRUPO);
+      $('bb-nav-p').textContent = hechas + ' de ' + delGrupo.length + ' completas';
+    } else {
+      nav.style.display = 'none';
+    }
+    $('bb-sub').textContent = f.length + (f.length === 1 ? ' producto' : ' productos') + '. Toca uno para ver o llenar su ficha.';
+    $('bb-lista').innerHTML = ver.length ? ver.map(function (x) {
+      var fi = D.fichas[x.i];
+      var costo = x.ok ? 'Food cost ' + pc(x.f) : 'Costo incompleto';
+      var ventas = x.u > 0 ? ' · ' + und(x.u) + ' por semana' : '';
+      return '<button type="button" class="bb-fila" data-i="' + esc(x.i) + '"><div class="bb-info"><div class="bb-nom">' + esc(x.n) + '</div>' +
+        '<div class="bb-sub">' + (GRUPO ? '' : esc(bonito(x.g)) + ' · ') + costo + ventas + (fi && fi.tieneFoto ? ' · con foto' : '') + '</div></div>' + chipEstado(estadoDe(x)) + '</button>';
+    }).join('') : '<div class="bb-vacio">No hay productos con ese filtro.</div>';
+    $('bb-mas').hidden = f.length <= LIMITE;
+  }
+
+  function pintarIndice() {
+    $('bb-nav').style.display = 'none';
+    $('bb-mas').hidden = true;
+    var g = {};
+    delArea().forEach(function (x) {
+      var o = g[x.g] || (g[x.g] = { n: x.g, t: 0, c: 0, p: 0, u: 0 });
+      o.t++; o.u += x.u;
+      var k = estadoDe(x).k;
+      if (k === 'c') o.c++; else if (k === 'p') o.p++;
+    });
+    var lista = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.u - a.u || a.n.localeCompare(b.n, 'es'); });
+    var tarjeta = function (o) {
+      var pct = o.t ? Math.round(o.c / o.t * 100) : 0;
+      return '<button type="button" class="bb-grupo' + (o.c === o.t && o.t ? ' listo' : '') + '" data-g="' + esc(o.n) + '"><b>' + esc(bonito(o.n)) + '</b>' +
+        '<span>' + o.c + ' de ' + o.t + ' completas' + (o.p ? ' · ' + o.p + ' en proceso' : '') + '</span><div class="bb-mini"><i style="width:' + pct + '%"></i></div></button>';
+    };
+    var h;
+    if (AREA === 'Barra') {
+      var lic = lista.filter(function (o) { return esLicor(o.n); }), pre = lista.filter(function (o) { return !esLicor(o.n); });
+      h = (pre.length ? '<h4 class="bb-macro">Cócteles y preparados</h4><div class="bb-grupos">' + pre.map(tarjeta).join('') + '</div>' : '') +
+          (lic.length ? '<h4 class="bb-macro">Licores, vinos y cervezas</h4><div class="bb-grupos">' + lic.map(tarjeta).join('') + '</div>' : '');
+    } else {
+      h = '<div class="bb-grupos">' + lista.map(tarjeta).join('') + '</div>';
+    }
+    $('bb-sub').textContent = lista.length + ' grupos. Toca uno para ver sus productos, o busca por nombre.';
+    $('bb-lista').innerHTML = h || '<div class="bb-vacio">No hay productos para mostrar.</div>';
+  }
+
+  $('bb-estados').onclick = function (e) {
+    var b = e.target.closest('[data-e]');
+    if (!b) return;
+    ESTADO = ESTADO === b.dataset.e ? '' : b.dataset.e; LIMITE = 40;
+    pintarResumen(); pintarLista();
+  };
+  $('bb-busca').oninput = function (e) { BUSCA = norm(e.target.value); LIMITE = 40; if (D && !D.vacio) pintarLista(); };
+  $('bb-orden').onchange = function (e) { ORDEN = e.target.value; pintarLista(); };
+  $('bb-simples').onchange = function (e) { SIMPLES = e.target.checked; GRUPO = ''; LIMITE = 40; pintar(); };
+  $('bb-mas').onclick = function () { LIMITE += 40; pintarLista(); };
+  $('bb-volver').onclick = function () { GRUPO = ''; LIMITE = 40; pintarLista(); window.scrollTo(0, 0); };
+  $('bb-lista').onclick = function (e) {
+    var g = e.target.closest('.bb-grupo');
+    if (g) { GRUPO = g.dataset.g; LIMITE = 40; pintarLista(); return; }
+    var f = e.target.closest('.bb-fila');
+    if (f) abrir(f.dataset.i);
+  };
+
+  /* ---------- Ficha: ventana ---------- */
+  function toast(txt) {
+    var t = $('bb-toast');
+    t.textContent = txt; t.style.display = 'block';
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.style.display = 'none'; }, 2600);
+  }
+  function mostrarHoja() { $('bb-ficha').style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+  function cerrarHoja() { $('bb-ficha').style.display = 'none'; document.body.style.overflow = ''; cur = null; }
+  $('bb-ficha').addEventListener('click', function (e) { if (e.target === $('bb-ficha') && cur && cur.modo === 'ver') cerrarHoja(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !cur || $('bb-ficha').style.display !== 'flex') return;
+    if (cur.modo === 'editar') salirEdicion(); else cerrarHoja();
+  });
+
+  function abrir(id, modo) {
+    var caja = $('bb-caja');
+    cur = { id: id, det: null, modo: 'ver', foto: { nueva: null, quitar: false, vista: null } };
+    mostrarHoja();
+    caja.innerHTML = '<div class="bb-vacio">Abriendo ficha…</div>';
+    caja.scrollTop = 0;
+    google.script.run
+      .withSuccessHandler(function (det) {
+        if (!cur || cur.id !== id) return;
+        if (!det) { caja.innerHTML = '<div class="bb-vacio">Este producto no tiene receta.</div><div class="bb-pie"><button type="button" class="bb-btn" id="bb-x">Cerrar</button></div>'; $('bb-x').onclick = cerrarHoja; return; }
+        cur.det = det;
+        if (modo === 'editar') pintarForm(); else pintarVer();
+      })
+      .withFailureHandler(function (e) {
+        caja.innerHTML = '<div class="bb-cab"><div><h3>No se pudo abrir</h3><p class="bb-sub2">' + esc(e && e.message) + '</p></div><button type="button" class="bb-cerrar" id="bb-x" aria-label="Cerrar">×</button></div>';
+        $('bb-x').onclick = cerrarHoja;
+      })
+      .getFichaPlato(id);
+  }
+
+  var fichaDe = function (id) { return D.fichas[id] || {}; };
+  var prodDe = function (det) { return { i: det.i, a: det.a, ni: det.lineas.length }; };
+  var areaDe = function () { return kindDeProd(cur.det.a, cur.det.lineas.length); };   // 'Cocina', 'Barra' o 'Botella'
+
+  function cabecera(det, e) {
+    return '<div class="bb-cab"><div><h3 id="bb-titulo">' + esc(det.n) + '</h3><p class="bb-sub2">' + esc(det.g) + ' · ID ' + esc(det.i) + '</p>' +
+      '<div style="margin-top:8px">' + chipEstado(e) + '</div></div><button type="button" class="bb-cerrar" id="bb-x" aria-label="Cerrar">×</button></div>';
+  }
+
+  /* ---------- Ficha: ver ---------- */
+  function pintarVer() {
+    cur.modo = 'ver';
+    var det = cur.det, id = cur.id, fi = fichaDe(id), caja = $('bb-caja');
+    var e = estadoDe(prodDe(det));
+    var met = function (t, v) { return '<div><small>' + t + '</small><b>' + v + '</b></div>'; };
+    var h = cabecera(det, e);
+    h += '<div class="bb-met">' + met('Precio sin IPO', pesos(det.p)) + met('Costo', pesos(det.c) + (det.x ? ' + ?' : '')) +
+      met('Margen', det.m != null ? pesos(det.m) : '—') +
+      met('Food cost', det.f != null ? '<span class="bb-chip ' + (det.f <= D.objetivo.verde ? 'bb-v' : det.f <= D.objetivo.ambar ? 'bb-a' : 'bb-r') + '">' + pc(det.f) + '</span>' : '—') + '</div>';
+    if (det.x) h += '<p class="bb-falta" style="font-size:13px;margin:0 0 6px">Faltan ' + det.x + ' insumos sin costo; el costo real es mayor al mostrado.</p>';
+
+    h += fi.tieneFoto ? '<div id="bb-fotoslot"><div class="bb-foto-vacia">Cargando foto…</div></div>' : '';
+
+    var tiene = false;
+    var dl = '';
+    ['origen', 'tipo', 'grados', 'servicio', 'porciones', 'cristaleria', 'metodo', 'hielo', 'guarnicion', 'merma', 'vida'].forEach(function (k) {
+      if (fi[k]) { tiene = true; dl += '<div><div class="bb-et">' + ETIQUETAS[k] + '</div><p class="bb-txt">' + esc(fi[k]) + '</p></div>'; }
+    });
+    if (dl) h += '<div class="bb-datos">' + dl + '</div>';
+    if (fi.preparacion) {
+      tiene = true;
+      var pasos = fi.preparacion.split('\n').map(function (l) { return l.replace(/^\s*\d+\s*[\.\)\-]\s*/, '').trim(); }).filter(Boolean);
+      h += '<div class="bb-et">Preparación</div><ol class="bb-pasos">' + pasos.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ol>';
+    }
+    if (fi.emplatado) { tiene = true; h += '<div class="bb-et">Emplatado</div><p class="bb-txt">' + esc(fi.emplatado) + '</p>'; }
+    if (fi.notacata) { tiene = true; h += '<div class="bb-et">Notas de cata</div><p class="bb-txt">' + esc(fi.notacata) + '</p>'; }
+    if (fi.maridaje) { tiene = true; h += '<div class="bb-et">' + ETIQUETAS.maridaje + '</div><p class="bb-txt">' + esc(fi.maridaje) + '</p>'; }
+    if (fi.alergenos) {
+      tiene = true;
+      h += '<div class="bb-et">Alérgenos</div><div class="bb-chips">' + fi.alergenos.split(',').map(function (a) {
+        a = a.trim(); return '<span class="bb-chip ' + (a === 'Ninguno' ? 'bb-v' : 'bb-a') + '">' + esc(a) + '</span>';
+      }).join('') + '</div>';
+    }
+    if (fi.notas) { tiene = true; h += '<div class="bb-et">Notas</div><p class="bb-txt">' + esc(fi.notas) + '</p>'; }
+    if (!tiene && !fi.tieneFoto) h += '<p class="bb-sub2" style="margin:12px 0 0">Esta ficha está vacía. Toca “Llenar ficha” para empezar.</p>';
+    if (fi.actualizado) h += '<p class="bb-sub2" style="margin:14px 0 0">Actualizada el ' + esc(fi.actualizado) + '</p>';
+
+    var filas = det.lineas.map(function (l) {
+      var parte = l.s != null && det.c > 0 ? l.s / det.c : 0;
+      return '<tr><td>' + esc(l.n) + '</td><td class="num">' + und(l.c) + ' ' + esc(l.u) + '</td>' +
+        (l.cu != null ? '<td class="num">' + pesos(l.cu) + '</td><td class="num"><b>' + pesos(l.s) + '</b></td>' : '<td class="num bb-falta" colspan="2">Sin costo</td>') + '</tr>';
+    }).join('');
+    if (window.TaxcoViz) h += window.TaxcoViz.pila(det);   // costo ilustrado (lo define la pestaña Costeo)
+    h += '<h4>Ingredientes y costo</h4><div class="bb-scroll"><table><thead><tr><th>Ingrediente</th><th class="num">Cantidad</th><th class="num">Costo por unidad</th><th class="num">Subtotal</th></tr></thead><tbody>' + filas + '</tbody></table></div>';
+
+    h += '<div class="bb-pie"><button type="button" class="bb-btn pri" id="bb-editar">' + (tiene || fi.tieneFoto ? 'Editar ficha' : 'Llenar ficha') + '</button>' +
+      '<button type="button" class="bb-btn" id="bb-cerrar2">Cerrar</button></div>';
+    caja.innerHTML = h;
+    caja.scrollTop = 0;
+    $('bb-x').onclick = cerrarHoja;
+    $('bb-cerrar2').onclick = cerrarHoja;
+    $('bb-editar').onclick = pintarForm;
+    cargarFoto(id);
+  }
+
+  function cargarFoto(id) {
+    var slot = $('bb-fotoslot');
+    if (!slot) return;
+    var poner = function (src) {
+      var s = $('bb-fotoslot');
+      if (!cur || cur.id !== id || !s) return;
+      s.innerHTML = src ? '<img class="bb-foto" alt="Foto de ' + esc(cur.det.n) + '" src="' + src + '">' : '';
+    };
+    if (fotos[id]) { poner(fotos[id]); return; }
+    google.script.run
+      .withSuccessHandler(function (src) { if (src) fotos[id] = src; poner(src); })
+      .withFailureHandler(function () { poner(''); })
+      .getFotoFicha(id);
+  }
+
+  /* ---------- Ficha: formulario ---------- */
+  function salirEdicion() {
+    if (!cur) return;
+    var b = recoger();                 // se conserva lo escrito (y la foto elegida) por si vuelves a editar
+    b.__foto = cur.foto;
+    borrador[cur.id] = b;
+    pintarVer();
+  }
+
+  function pintarForm() {
+    var det = cur.det, id = cur.id, caja = $('bb-caja');
+    cur.modo = 'editar';
+    var bor = borrador[id];
+    cur.foto = bor && bor.__foto ? bor.__foto : { nueva: null, quitar: false, vista: null };
+    var area = areaDe();
+    var v = bor || fichaDe(id);
+    var e = estadoDe(prodDe(det));
+    var refer = det.lineas.map(function (l) { return und(l.c) + ' ' + esc(l.u) + ' ' + esc(l.n); }).join(' · ');
+    var h = cabecera(det, e);
+    if (area !== 'Botella') h += '<details class="bb-ref"><summary>Ingredientes de la receta (' + det.lineas.length + ')</summary><p>' + refer + '</p></details>';
+
+    CAMPOS[area].forEach(function (c) {
+      var val = v[c.k] || '';
+      var tit = '<label for="bb-f-' + c.k + '">' + c.t + (c.ayuda ? ' <small>(' + c.ayuda + ')</small>' : '') + '</label>';
+      if (c.tipo === 'texto') h += '<div class="bb-campo">' + tit + '<input id="bb-f-' + c.k + '" type="text" maxlength="200" autocomplete="off" placeholder="' + esc(c.ph || '') + '" value="' + esc(val) + '"></div>';
+      else if (c.tipo === 'lista') h += '<div class="bb-campo">' + tit + '<input id="bb-f-' + c.k + '" type="text" maxlength="200" autocomplete="off" list="bb-l-' + c.k + '" placeholder="' + esc(c.ph || '') + '" value="' + esc(val) + '">' +
+        '<datalist id="bb-l-' + c.k + '">' + OPCIONES[c.k].map(function (o) { return '<option value="' + esc(o) + '">'; }).join('') + '</datalist></div>';
+      else if (c.tipo === 'area') h += '<div class="bb-campo">' + tit + '<textarea id="bb-f-' + c.k + '" rows="' + (c.filas || 4) + '" maxlength="6000" placeholder="' + esc(c.ph || '') + '">' + esc(val) + '</textarea></div>';
+      else if (c.tipo === 'alergenos') {
+        var sel = String(val).split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+        h += '<div class="bb-campo">' + tit + '<div class="bb-alg" id="bb-f-alergenos">' + ALERGENOS.map(function (a) {
+          return '<button type="button" data-a="' + esc(a) + '" aria-pressed="' + (sel.indexOf(a) >= 0) + '">' + esc(a) + '</button>';
+        }).join('') + '</div></div>';
+      }
+    });
+
+    h += '<div class="bb-campo"><label>Foto ' + (area === 'Barra' ? 'del trago' : area === 'Botella' ? 'de la botella' : 'del plato') + ' <small>(opcional)</small></label><div class="bb-fotoform">' +
+      '<img id="bb-prev" alt="" hidden><button type="button" class="bb-btn" id="bb-fotobtn">Tomar o elegir foto</button>' +
+      '<button type="button" class="bb-btn" id="bb-fotoquitar" hidden>Quitar foto</button>' +
+      '<input type="file" id="bb-fotoin" accept="image/*"></div></div>';
+    h += '<div class="bb-error" id="bb-err" hidden></div>';
+    h += '<div class="bb-pie"><button type="button" class="bb-btn pri" id="bb-guardar">Guardar ficha</button>' +
+      '<button type="button" class="bb-btn" id="bb-guardar-sig">Guardar y seguir con la siguiente</button>' +
+      '<button type="button" class="bb-btn" id="bb-cancelar">Volver sin guardar</button></div>';
+    caja.innerHTML = h;
+    caja.scrollTop = 0;
+
+    $('bb-x').onclick = salirEdicion;
+    $('bb-cancelar').onclick = function () { delete borrador[id]; pintarVer(); };
+    $('bb-guardar').onclick = function () { guardar(false); };
+    $('bb-guardar-sig').onclick = function () { guardar(true); };
+    var alg = $('bb-f-alergenos');
+    if (alg) alg.onclick = function (ev) {
+      var b = ev.target.closest('button[data-a]');
+      if (!b) return;
+      var on = b.getAttribute('aria-pressed') !== 'true';
+      alg.querySelectorAll('button').forEach(function (x) {
+        if (x === b) x.setAttribute('aria-pressed', on);
+        else if (on && (b.dataset.a === 'Ninguno' || x.dataset.a === 'Ninguno')) x.setAttribute('aria-pressed', 'false');
+      });
+    };
+    prepararFoto(id);
+  }
+
+  function prepararFoto(id) {
+    var prev = $('bb-prev'), quitar = $('bb-fotoquitar'), btn = $('bb-fotobtn');
+    var mostrar = function (src) {
+      prev.hidden = !src; if (src) prev.src = src;
+      quitar.hidden = !src;
+      btn.textContent = src ? 'Cambiar foto' : 'Tomar o elegir foto';
+    };
+    if (cur.foto.nueva) { mostrar(cur.foto.vista); }
+    else if (cur.foto.quitar) { mostrar(null); }
+    var existente = fichaDe(id).tieneFoto ? fotos[id] : null;
+    if (!cur.foto.nueva && !cur.foto.quitar) mostrar(existente || null);
+    if (fichaDe(id).tieneFoto && !existente && !cur.foto.nueva && !cur.foto.quitar) {
+      btn.textContent = 'Cambiar foto'; quitar.hidden = false;
+      google.script.run.withSuccessHandler(function (src) {
+        if (src) fotos[id] = src;
+        if (src && cur && cur.id === id && cur.modo === 'editar' && !cur.foto.nueva && !cur.foto.quitar) mostrar(src);
+      }).getFotoFicha(id);
+    }
+    btn.onclick = function () { $('bb-fotoin').click(); };
+    $('bb-fotoin').onchange = function (ev) {
+      var file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      reducirFoto(file, function (data) {
+        if (!data) { error('No se pudo leer la foto. Prueba con otra.'); return; }
+        error('');
+        cur.foto.nueva = data; cur.foto.quitar = false; cur.foto.vista = data;
+        mostrar(data);
+      });
+      ev.target.value = '';
+    };
+    quitar.onclick = function () {
+      cur.foto.nueva = null; cur.foto.vista = null;
+      cur.foto.quitar = !!fichaDe(id).tieneFoto;
+      mostrar(null);
+    };
+  }
+
+  function reducirFoto(file, cb) {
+    var rd = new FileReader();
+    rd.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 1100, k = Math.min(1, max / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        cb(c.toDataURL('image/jpeg', 0.78));
+      };
+      img.onerror = function () { cb(null); };
+      img.src = rd.result;
+    };
+    rd.onerror = function () { cb(null); };
+    rd.readAsDataURL(file);
+  }
+
+  function error(msg) {
+    var e = $('bb-err');
+    if (!e) return;
+    e.hidden = !msg; e.textContent = msg || '';
+  }
+
+  function recoger() {
+    var v = {};
+    CAMPOS[areaDe()].forEach(function (c) {
+      if (c.tipo === 'alergenos') {
+        v.alergenos = Array.prototype.slice.call(document.querySelectorAll('#bb-f-alergenos button[aria-pressed="true"]')).map(function (b) { return b.dataset.a; }).join(', ');
+      } else {
+        var el = $('bb-f-' + c.k);
+        v[c.k] = el ? el.value : '';
+      }
+    });
+    return v;
+  }
+
+  /* ---------- Guardar ---------- */
+  function siguientePendiente(id) {
+    var lista = ordenar(delArea().filter(function (x) { return !GRUPO || x.g === GRUPO; }));
+    var i = lista.map(function (x) { return x.i; }).indexOf(id);
+    for (var j = 1; j <= lista.length; j++) {
+      var x = lista[(i + j) % lista.length];
+      if (x.i !== id && estadoDe(x).k !== 'c') return x.i;
+    }
+    return null;
+  }
+
+  function guardar(seguir) {
+    var id = cur.id, det = cur.det, area = areaDe();
+    var v = recoger();
+    var payload = { id: id, nombre: det.n, area: area };
+    Object.keys(v).forEach(function (k) { payload[k] = v[k]; });
+    payload.foto = cur.foto.nueva;
+    payload.quitarFoto = cur.foto.quitar;
+    var btns = document.querySelectorAll('#bb-caja .bb-pie button');
+    btns.forEach(function (b) { b.disabled = true; });
+    $('bb-guardar').textContent = 'Guardando…';
+    error('');
+    google.script.run
+      .withSuccessHandler(function (r) {
+        var nuevo = { id: id, nombre: det.n, area: area, porciones: '', preparacion: '', emplatado: '', alergenos: '', merma: '', vida: '',
+          cristaleria: '', metodo: '', hielo: '', guarnicion: '', notas: '', tieneFoto: r.tieneFoto, actualizado: r.actualizado };
+        Object.keys(v).forEach(function (k) { nuevo[k] = String(v[k] || '').trim(); });
+        D.fichas[id] = nuevo;
+        if (cur.foto.nueva) fotos[id] = cur.foto.nueva;
+        else if (cur.foto.quitar) delete fotos[id];
+        delete borrador[id];
+        pintarResumen(); pintarLista();
+        toast('Ficha guardada');
+        if (seguir) {
+          var nx = siguientePendiente(id);
+          if (nx) { abrir(nx, 'editar'); return; }
+          toast('Ficha guardada. No quedan fichas pendientes');
+        }
+        pintarVer();
+      })
+      .withFailureHandler(function (e) {
+        btns.forEach(function (b) { b.disabled = false; });
+        $('bb-guardar').textContent = 'Guardar ficha';
+        error('No se pudo guardar: ' + (e && e.message ? e.message : 'error desconocido') + '. Lo que escribiste sigue aquí; intenta de nuevo.');
+      })
+      .guardarFicha(payload);
+  }
+
+  /* ---------- Acceso desde la pestaña Costeo ---------- */
+  window.TaxcoBiblia = {
+    abrir: function (id, modo) {
+      var ir = function () { abrir(String(id), modo || 'ver'); };
+      if (D && !D.vacio) ir(); else cargar(ir);
+    }
+  };
+})();
+</script>
+

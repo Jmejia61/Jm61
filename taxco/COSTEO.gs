@@ -1,6 +1,7 @@
 /**
- * COSTEO TAXCO + BIBLIAS — v2.2.1
+ * COSTEO TAXCO + BIBLIAS — v2.3
  * =============================
+ * v2.3: botón "Subir Recetas" junto a "Subir Saldos de bodega" (subirReporteMig).
  * v2.2.1: botón "Subir Saldos de bodega" en la pestaña Costeo (subirSaldosBodega): el archivo se
  *         guarda en la carpeta con la fecha de hoy y los costos se actualizan de inmediato.
  * Costeo de recetas, margen (costo vs. venta) y biblias de cocina y de barra
@@ -174,38 +175,51 @@ function cargarCosteoDrive() {
 }
 
 /**
- * Recibe desde la página el reporte Saldos de bodega del MIG (.xls o .xlsx, en base64),
- * lo guarda en la carpeta COSTEO TAXCO con la fecha de hoy en el nombre (así la foto de costos
- * queda al día de hoy), lo procesa enseguida y lo pasa a PROCESADOS.
- * Si el archivo no es un reporte de Saldos válido, se manda a la papelera para no trabar otras cargas.
+ * Reportes del MIG que se pueden subir desde la página de Costeo.
+ * prefijo: nombre con que se guarda en la carpeta (con la fecha de hoy); proc: función que lo procesa.
+ */
+const COSTEO_SUBIDAS = {
+  saldos:  { prefijo: 'SaldosBodega', titulo: 'Saldos de bodega', proc: function (ss, f) { return cProcSaldos(ss, f); } },
+  recetas: { prefijo: 'Recetas',      titulo: 'Recetas',          proc: function (ss, f) { return cProcRecetas(ss, f); } }
+};
+
+/**
+ * Recibe desde la página un reporte del MIG (.xls o .xlsx, en base64), lo guarda en la carpeta
+ * COSTEO TAXCO con la fecha de hoy en el nombre, lo procesa enseguida y lo pasa a PROCESADOS.
+ * Si el archivo no es el reporte correcto, se manda a la papelera y no se cambia nada.
  * El resultado sale directo de procesar este archivo (no se consulta en qué carpeta quedó:
  * Drive puede responder con la carpeta de antes de moverlo).
  */
-function subirSaldosBodega(nombre, base64) {
+function subirReporteMig(tipo, nombre, base64) {
+  const conf = COSTEO_SUBIDAS[tipo];
+  if (!conf) throw new Error('Tipo de reporte desconocido.');
   nombre = String(nombre || '');
   const ext = (nombre.match(/\.xlsx?$/i) || [''])[0].toLowerCase();
   if (!ext) throw new Error('El archivo debe ser Excel (.xls o .xlsx), como lo exporta el MIG.');
   if (!base64) throw new Error('No llegó el archivo. Intenta de nuevo.');
   if (String(base64).length > 30000000) throw new Error('El archivo es muy pesado (más de 20 MB).');
-  const tipo = ext === '.xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.ms-excel';
+  const tipoMime = ext === '.xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.ms-excel';
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw new Error('Hay otra carga de costeo en curso. Espera un minuto e inténtalo de nuevo.');
   try {
     const carpeta = cCarpeta();
-    const archivo = carpeta.createFile(Utilities.newBlob(Utilities.base64Decode(base64), tipo, 'SaldosBodega ' + cHoy() + ext));
+    const archivo = carpeta.createFile(Utilities.newBlob(Utilities.base64Decode(base64), tipoMime, conf.prefijo + ' ' + cHoy() + ext));
     try {
-      const msg = cProcSaldos(SpreadsheetApp.openById(SHEET_ID), archivo);
+      const msg = conf.proc(SpreadsheetApp.openById(SHEET_ID), archivo);
       archivo.moveTo(cProcesados(carpeta));
-      return { ok: true, subido: true, mensajes: ['✅ Saldos de bodega: ' + msg] };
+      return { ok: true, subido: true, mensajes: ['✅ ' + conf.titulo + ': ' + msg] };
     } catch (e) {
       archivo.setTrashed(true);
       return { ok: true, subido: false, mensajes: ['⚠️ No se pudo usar el archivo: ' + e.message,
-        'No se cambió ningún costo. Revisa que sea el reporte Saldos de bodega del MIG.'] };
+        'No se cambió nada. Revisa que sea el reporte ' + conf.titulo + ' del MIG.'] };
     }
   } finally {
     lock.releaseLock();
   }
 }
+
+/** Se deja por compatibilidad: subir Saldos de bodega. */
+function subirSaldosBodega(nombre, base64) { return subirReporteMig('saldos', nombre, base64); }
 
 function cProcRecetas(ss, file) {
   const t = cTabla(cLeerArchivo(file), 'Grupo');

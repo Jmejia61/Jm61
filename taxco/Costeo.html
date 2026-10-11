@@ -209,6 +209,7 @@
     </div>
     <span class="cx-acciones">
       <button type="button" class="cx-btn fuerte" id="cx-subir">Subir Saldos de bodega</button>
+      <button type="button" class="cx-btn fuerte" id="cx-subir-recetas">Subir Recetas</button>
       <button type="button" class="cx-btn" id="cx-actualizar">Actualizar desde Drive</button>
       <input type="file" id="cx-archivo" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
     </span>
@@ -395,17 +396,23 @@
       .cargarCosteoDrive();
   };
 
-  /* Subir el reporte Saldos de bodega desde la página: actualiza los costos al día de hoy */
-  $('cx-subir').onclick = function () { $('cx-archivo').value = ''; $('cx-archivo').click(); };
+  /* Subir reportes del MIG desde la página (Saldos de bodega o Recetas): actualiza el costeo de inmediato */
+  var SUBIDA = { saldos: { boton: 'cx-subir', texto: 'Subir Saldos de bodega', que: 'Saldos de bodega', hecho: 'Costos actualizados ✓', progreso: 'actualizando los costos al día de hoy' },
+                 recetas: { boton: 'cx-subir-recetas', texto: 'Subir Recetas', que: 'Recetas', hecho: 'Recetas actualizadas ✓', progreso: 'actualizando las recetas' } };
+  var tipoSubida = 'saldos';
+  function botonesSubida(off) { ['cx-subir', 'cx-subir-recetas', 'cx-actualizar'].forEach(function (id) { var x = $(id); if (x) x.disabled = off; }); }
+  Object.keys(SUBIDA).forEach(function (t) {
+    $(SUBIDA[t].boton).onclick = function () { tipoSubida = t; $('cx-archivo').value = ''; $('cx-archivo').click(); };
+  });
   $('cx-archivo').onchange = function () {
-    var f = this.files && this.files[0], av = $('cx-aviso'), b = $('cx-subir'), b2 = $('cx-actualizar');
+    var f = this.files && this.files[0], av = $('cx-aviso'), cfg = SUBIDA[tipoSubida], tipo = tipoSubida, b = $(cfg.boton);
     if (!f) return;
     av.hidden = false;
-    if (!/\.xlsx?$/i.test(f.name)) { av.textContent = 'Ese archivo no es Excel. Sube el reporte Saldos de bodega del MIG (.xls o .xlsx).'; return; }
-    if (f.size > 20 * 1024 * 1024) { av.textContent = 'El archivo pesa más de 20 MB. Revisa que sea el reporte Saldos de bodega.'; return; }
-    b.disabled = b2.disabled = true; b.textContent = 'Subiendo…';
-    av.textContent = 'Subiendo «' + f.name + '» y actualizando los costos al día de hoy…';
-    var fin = function () { b.disabled = b2.disabled = false; b.textContent = 'Subir Saldos de bodega'; };
+    if (!/\.xlsx?$/i.test(f.name)) { av.textContent = 'Ese archivo no es Excel. Sube el reporte ' + cfg.que + ' del MIG (.xls o .xlsx).'; return; }
+    if (f.size > 20 * 1024 * 1024) { av.textContent = 'El archivo pesa más de 20 MB. Revisa que sea el reporte ' + cfg.que + '.'; return; }
+    botonesSubida(true); b.textContent = 'Subiendo…';
+    av.textContent = 'Subiendo «' + f.name + '» y ' + cfg.progreso + '…';
+    var fin = function () { botonesSubida(false); b.textContent = cfg.texto; };
     var lector = new FileReader();
     lector.onerror = function () { fin(); av.textContent = 'No se pudo leer el archivo en este dispositivo. Intenta de nuevo.'; };
     lector.onload = function () {
@@ -413,11 +420,11 @@
       google.script.run
         .withSuccessHandler(function (r) {
           fin();
-          av.innerHTML = (r.subido ? '<b>Costos actualizados ✓</b><br>' : '') + (r.mensajes || []).map(esc).join('<br>');
+          av.innerHTML = (r.subido ? '<b>' + esc(cfg.hecho) + '</b><br>' : '') + (r.mensajes || []).map(esc).join('<br>');
           cargar();
         })
         .withFailureHandler(function (e) { fin(); av.textContent = 'No se pudo subir: ' + ((e && e.message) || 'intenta de nuevo'); })
-        .subirSaldosBodega(f.name, b64);
+        .subirReporteMig(tipo, f.name, b64);
     };
     lector.readAsDataURL(f);
   };

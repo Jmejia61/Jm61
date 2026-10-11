@@ -1,8 +1,8 @@
 /**
- * COSTEO TAXCO + BIBLIAS — v2.2
+ * COSTEO TAXCO + BIBLIAS — v2.2.1
  * =============================
- * v2.2: botón "Subir Saldos de bodega" en la pestaña Costeo (subirSaldosBodega): el archivo se
- *       guarda en la carpeta con la fecha de hoy y los costos se actualizan de inmediato.
+ * v2.2.1: botón "Subir Saldos de bodega" en la pestaña Costeo (subirSaldosBodega): el archivo se
+ *         guarda en la carpeta con la fecha de hoy y los costos se actualizan de inmediato.
  * Costeo de recetas, margen (costo vs. venta) y biblias de cocina y de barra
  * (ficha técnica de cada plato y trago, con formulario para llenarla desde el iPad).
  * Archivo NUEVO dentro del proyecto VENTAS TAXCO. No toca Código.gs.
@@ -176,8 +176,10 @@ function cargarCosteoDrive() {
 /**
  * Recibe desde la página el reporte Saldos de bodega del MIG (.xls o .xlsx, en base64),
  * lo guarda en la carpeta COSTEO TAXCO con la fecha de hoy en el nombre (así la foto de costos
- * queda al día de hoy) y lo procesa enseguida con cargarCosteoDrive.
- * Si el archivo no es un reporte de Saldos válido, se quita de la carpeta para no trabar otras cargas.
+ * queda al día de hoy), lo procesa enseguida y lo pasa a PROCESADOS.
+ * Si el archivo no es un reporte de Saldos válido, se manda a la papelera para no trabar otras cargas.
+ * El resultado sale directo de procesar este archivo (no se consulta en qué carpeta quedó:
+ * Drive puede responder con la carpeta de antes de moverlo).
  */
 function subirSaldosBodega(nombre, base64) {
   nombre = String(nombre || '');
@@ -186,17 +188,23 @@ function subirSaldosBodega(nombre, base64) {
   if (!base64) throw new Error('No llegó el archivo. Intenta de nuevo.');
   if (String(base64).length > 30000000) throw new Error('El archivo es muy pesado (más de 20 MB).');
   const tipo = ext === '.xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.ms-excel';
-  const carpeta = cCarpeta();
-  const archivo = carpeta.createFile(Utilities.newBlob(Utilities.base64Decode(base64), tipo, 'SaldosBodega ' + cHoy() + ext));
-  const r = cargarCosteoDrive();
-  // Si quedó en la carpeta (no pasó a PROCESADOS) es porque no se pudo procesar
-  const sigue = r.ok && archivo.getParents().hasNext() && archivo.getParents().next().getId() === carpeta.getId();
-  if (sigue) {
-    archivo.setTrashed(true);
-    r.mensajes.push('El archivo subido no se pudo usar y se quitó de la carpeta. Revisa que sea el reporte Saldos de bodega del MIG.');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) throw new Error('Hay otra carga de costeo en curso. Espera un minuto e inténtalo de nuevo.');
+  try {
+    const carpeta = cCarpeta();
+    const archivo = carpeta.createFile(Utilities.newBlob(Utilities.base64Decode(base64), tipo, 'SaldosBodega ' + cHoy() + ext));
+    try {
+      const msg = cProcSaldos(SpreadsheetApp.openById(SHEET_ID), archivo);
+      archivo.moveTo(cProcesados(carpeta));
+      return { ok: true, subido: true, mensajes: ['✅ Saldos de bodega: ' + msg] };
+    } catch (e) {
+      archivo.setTrashed(true);
+      return { ok: true, subido: false, mensajes: ['⚠️ No se pudo usar el archivo: ' + e.message,
+        'No se cambió ningún costo. Revisa que sea el reporte Saldos de bodega del MIG.'] };
+    }
+  } finally {
+    lock.releaseLock();
   }
-  r.subido = !sigue && r.ok;
-  return r;
 }
 
 function cProcRecetas(ss, file) {

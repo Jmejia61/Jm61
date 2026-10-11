@@ -183,6 +183,12 @@
   .menu button:hover { background: rgba(110, 104, 44, .08); }
   .menu button.activo { background: var(--naranja); color: #FFFDF7; }
 
+  /* Menú en árbol: Productos › Costeo › Biblias, y Compras */
+  .menu .grupo, .menu .sub { display: flex; flex-direction: column; gap: 4px; }
+  .menu .sub { margin-left: 16px; padding-left: 8px; border-left: 1.5px solid rgba(110, 104, 44, .3); }
+  .menu .sub button { font-size: 13.5px; padding-top: 8px; padding-bottom: 8px; }
+  .menu .sub .sub button { font-size: 13px; }
+
   /* Títulos */
   html body .cabecera h1 { font-family: var(--f-marca); font-weight: 400; font-size: 38px; letter-spacing: .05em; text-transform: uppercase; line-height: 1; color: var(--naranja); }
   html body .cabecera p, html body .actualizado { font-family: var(--f-maquina); letter-spacing: .03em; }
@@ -234,6 +240,7 @@
     .menu { flex-direction: row; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
     .menu::-webkit-scrollbar { display: none; }
     .menu button { flex: none; white-space: nowrap; }
+    .menu .grupo, .menu .sub { display: contents; }   /* en celular el menú vuelve a ser una sola fila */
     .marca-texto { flex-direction: row; align-items: baseline; gap: 12px; }
     .marca-texto b { font-size: 30px; }
     .marca-texto span { font-size: 10px; letter-spacing: .16em; }
@@ -697,6 +704,25 @@ document.querySelectorAll('#filtros button').forEach(b => b.onclick = () => {
 function acumuladoPromedio(filas) {
   let s = 0; return filas.map((r, i) => (s += r.tv) / (i + 1));
 }
+
+/* ============ Menú en árbol ============ */
+/* Costeo, Biblia y Compras agregan su botón al menú al cargar; cuando ya están todos,
+   se agrupan:  Productos › (Costeo › Biblia cocina, Biblia barra) y Compras.
+   Los botones siguen dentro de .menu, así que los clics de cada pestaña funcionan igual. */
+function agruparMenu() {
+  const menu = document.querySelector('.menu');
+  if (!menu) return;
+  const b = v => menu.querySelector('button[data-vista="' + v + '"]');
+  const div = (cls, hijos) => { const d = document.createElement('div'); d.className = cls; hijos.filter(Boolean).forEach(h => d.appendChild(h)); return d; };
+  const prod = b('productos'); if (!prod) return;
+  const bib = [b('biblia-cocina'), b('biblia-barra')].filter(Boolean);
+  const hijos = [b('costeo'), bib.length ? div('sub', bib) : null, b('compras')].filter(Boolean);
+  const grupo = div('grupo', []);
+  menu.insertBefore(grupo, prod);
+  grupo.appendChild(prod);
+  if (hijos.length) grupo.appendChild(div('sub', hijos));
+}
+document.addEventListener('DOMContentLoaded', agruparMenu);
 
 /* ============ Arranque ============ */
 function iniciar(datos) {
